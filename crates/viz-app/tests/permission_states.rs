@@ -22,10 +22,16 @@ use viz_app::app_state::{select_view, AppView, GuidanceVariant};
 use viz_audio::permission::{Observation, PermissionTracker, GRACE_WINDOW};
 use viz_audio::PermissionState;
 
+/// The macOS-style permission policy (capture gated behind a TCC grant). These
+/// tests exercise the permission-guidance behaviour, so they drive the selector in
+/// the permission-applicable mode explicitly, independent of the host OS.
+const PERMISSION: bool = true;
+
 /// Convenience: select the view for a *permission* timeline (artifact present,
-/// no non-permission capture failure — the common permission-handling case).
+/// no non-permission capture failure — the common permission-handling case) under
+/// the permission-applicable (macOS-style) policy.
 fn view_for(permission: PermissionState) -> AppView {
-    select_view(true, None, permission)
+    select_view(true, None, permission, PERMISSION)
 }
 
 // --- Priority order, frame by frame -----------------------------------------
@@ -37,8 +43,14 @@ fn priority_no_artifact_beats_everything() {
         PermissionState::Denied,
         PermissionState::Granted,
     ] {
-        assert_eq!(select_view(false, None, p), AppView::NoArtifacts);
-        assert_eq!(select_view(false, Some("boom"), p), AppView::NoArtifacts);
+        assert_eq!(
+            select_view(false, None, p, PERMISSION),
+            AppView::NoArtifacts
+        );
+        assert_eq!(
+            select_view(false, Some("boom"), p, PERMISSION),
+            AppView::NoArtifacts
+        );
     }
 }
 
@@ -52,7 +64,7 @@ fn priority_non_permission_failure_beats_permission_state() {
         PermissionState::Granted,
     ] {
         assert_eq!(
-            select_view(true, Some("device error"), p),
+            select_view(true, Some("device error"), p, PERMISSION),
             AppView::CaptureFailed {
                 message: "device error".to_owned()
             }
@@ -239,6 +251,58 @@ fn grant_revoke_grant_cycle_selects_correct_screen_each_phase() {
         rebuild_completed_still_zero: false,
     });
     assert_eq!(view_for(p), AppView::Active);
+}
+
+// --- Windows policy: no audio permission, neutral waiting hint --------------
+
+/// The Windows-style policy: capture is not gated behind any user permission, so
+/// the non-granted states must surface the neutral waiting hint, never consent.
+const NO_PERMISSION: bool = false;
+
+#[test]
+fn windows_unknown_and_denied_select_waiting_for_audio_never_consent() {
+    // Drive the same tracker timeline that lands in Unknown then Denied on macOS,
+    // but select under the Windows policy: every non-granted frame is the neutral
+    // WaitingForAudio hint — the consent guidance never appears.
+    let mut tracker = PermissionTracker::new();
+
+    // Before the grace: Unknown.
+    let p = tracker.observe(&Observation::silent(
+        GRACE_WINDOW - Duration::from_millis(1),
+    ));
+    assert_eq!(p, PermissionState::Unknown);
+    assert_eq!(
+        select_view(true, None, p, NO_PERMISSION),
+        AppView::WaitingForAudio
+    );
+
+    // At/after the grace: Denied — still the neutral hint on Windows.
+    let p = tracker.observe(&Observation::silent(GRACE_WINDOW));
+    assert_eq!(p, PermissionState::Denied);
+    assert_eq!(
+        select_view(true, None, p, NO_PERMISSION),
+        AppView::WaitingForAudio
+    );
+}
+
+#[test]
+fn windows_first_audio_promotes_to_active() {
+    // The first non-zero sample promotes to Granted; on Windows that is Active,
+    // exactly like macOS — only the *non-granted* copy differs by platform.
+    let mut tracker = PermissionTracker::new();
+    let p = tracker.observe(&Observation::silent(Duration::from_millis(100)));
+    assert_eq!(
+        select_view(true, None, p, NO_PERMISSION),
+        AppView::WaitingForAudio
+    );
+    let p = tracker.observe(&Observation {
+        saw_nonzero: true,
+        elapsed_since_start: Duration::from_millis(120),
+        sustained_zeros: false,
+        output_device_running: true,
+        rebuild_completed_still_zero: false,
+    });
+    assert_eq!(select_view(true, None, p, NO_PERMISSION), AppView::Active);
 }
 
 #[test]

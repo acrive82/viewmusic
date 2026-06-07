@@ -1,15 +1,25 @@
 # Windows Port: Feasibility and Cost Analysis
 
+> **Status: implemented.** The Windows port described below has shipped. ViewMusic
+> now runs on Windows 10 1803+ (x64) via a WASAPI loopback capture backend
+> (`crates/viz-audio/src/tap_windows.rs`) behind the existing capture seam, with a
+> watchdog that treats idle silence as healthy, platform-correct paths and UI, a
+> GitHub Actions matrix that builds and tests on both macOS and Windows, and a
+> portable zip bundle (`packaging/bundle-windows.ps1`). This document is retained as
+> the **design record** — the component-by-component analysis, the capture
+> deep-dive, and the risk register that guided the implementation. See the README
+> for build and run instructions.
+
 ViewMusic is a real-time system-audio visualizer. It captures whatever audio your
 machine is playing, runs a small DSP pipeline over it (spectrum bands, energy,
 onset/beat detection), and renders GPU visualizations described by a small JSON
-"artifact" format. Today it ships for macOS only.
+"artifact" format.
 
 This document answers one question for prospective contributors and users: **what
-would it take to run ViewMusic on Windows, and is it worth doing now?** Every claim
-about ViewMusic's structure is grounded in the source tree; every claim about the
-Windows platform is grounded in current (2025/2026) vendor documentation and the
-state of the relevant Rust ecosystem.
+does it take to run ViewMusic on Windows?** Every claim about ViewMusic's structure
+is grounded in the source tree; every claim about the Windows platform is grounded in
+current (2025/2026) vendor documentation and the state of the relevant Rust
+ecosystem.
 
 ---
 

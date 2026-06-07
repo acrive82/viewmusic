@@ -8,11 +8,19 @@ authors.workspace = true
 
 [dependencies]
 viz-core = { workspace = true }
-cidre = { workspace = true }
 realfft = { workspace = true }
 triple_buffer = { workspace = true }
 rtrb = { workspace = true }
 tracing = { workspace = true }
+
+# macOS Core Audio tap backend (must not be pulled on other platforms)
+[target.'cfg(target_os = "macos")'.dependencies]
+cidre = { workspace = true }
+
+# Windows WASAPI loopback backend (must not be pulled on other platforms)
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }
+windows-core = { workspace = true }
 
 [lints]
 workspace = true

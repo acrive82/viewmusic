@@ -1,9 +1,15 @@
 //! Application logging setup.
 //!
-//! Writes structured logs to a single stable file under the macOS Logs directory
-//! (`~/Library/Logs/io.github.acrive82.viewmusic/viewmusic.log`),
-//! through a `tracing_appender` non-blocking writer so file I/O never touches the
-//! real-time audio or render threads.
+//! Writes structured logs to a single stable file through a `tracing_appender`
+//! non-blocking writer so file I/O never touches the real-time audio or render
+//! threads. The log directory is platform-correct:
+//!
+//! * **macOS** — `~/Library/Logs/io.github.acrive82.viewmusic/viewmusic.log`
+//!   (the `directories` crate does not expose the macOS Logs location, so the
+//!   path is built from the home directory directly).
+//! * **Windows** — `%LOCALAPPDATA%\acrive82\viewmusic\data\logs\viewmusic.log`,
+//!   resolved via `directories::ProjectDirs::data_local_dir()` (the platform's
+//!   per-user, non-roaming application data location).
 //!
 //! The file uses `Rotation::NEVER` (one stable filename for the documented
 //! troubleshooting path). To stop unbounded growth, [`init`] checks the file size
@@ -15,8 +21,22 @@ use std::path::{Path, PathBuf};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::EnvFilter;
 
-/// Reverse-DNS bundle id; also the Logs subdirectory name.
+/// Reverse-DNS bundle id; also the macOS Logs subdirectory name.
 pub const BUNDLE_ID: &str = "io.github.acrive82.viewmusic";
+/// Qualifier/organization/application that resolve the Windows data-local dir via
+/// `directories::ProjectDirs`. On Windows the qualifier is dropped and the path is
+/// `%LOCALAPPDATA%\acrive82\viewmusic\data` (logs live in its `logs` subdir).
+#[cfg(target_os = "windows")]
+pub const QUALIFIER: &str = "io.github";
+/// See [`QUALIFIER`].
+#[cfg(target_os = "windows")]
+pub const ORGANIZATION: &str = "acrive82";
+/// See [`QUALIFIER`].
+#[cfg(target_os = "windows")]
+pub const APPLICATION: &str = "viewmusic";
+/// Windows log subdirectory under the per-user data-local application directory.
+#[cfg(target_os = "windows")]
+pub const LOG_SUBDIR: &str = "logs";
 /// Stable log file name (the documented troubleshooting path).
 pub const LOG_FILE_NAME: &str = "viewmusic.log";
 /// Single backup file name produced by startup rotation.
@@ -26,20 +46,42 @@ pub const MAX_LOG_BYTES: u64 = 10 * 1024 * 1024;
 /// Default log level when `RUST_LOG` is unset.
 pub const DEFAULT_FILTER: &str = "info";
 
-/// Computes the log directory `~/Library/Logs/<BUNDLE_ID>` from a home directory.
+/// Computes the macOS log directory `~/Library/Logs/<BUNDLE_ID>` from a home
+/// directory.
 ///
 /// `directories` does not expose a macOS Logs location, so the path is built from
 /// the home directory directly. Pure function — unit-tested.
+#[cfg(target_os = "macos")]
 pub fn log_dir_from_home(home: &Path) -> PathBuf {
     home.join("Library").join("Logs").join(BUNDLE_ID)
 }
 
-/// Resolves the active log directory from the current user's home directory.
+/// Resolves the active log directory for the current platform.
 ///
-/// Returns `None` only when no home directory can be determined.
+/// * **macOS** — `~/Library/Logs/io.github.acrive82.viewmusic`, built from the
+///   current user's home directory ([`log_dir_from_home`]).
+/// * **Windows** — `%LOCALAPPDATA%\acrive82\viewmusic\data\logs`, resolved via
+///   `directories::ProjectDirs::data_local_dir()` plus the [`LOG_SUBDIR`].
+///
+/// Returns `None` only when the platform yields no home/data directory.
+#[cfg(target_os = "macos")]
 pub fn log_dir() -> Option<PathBuf> {
     let base = directories::BaseDirs::new()?;
     Some(log_dir_from_home(base.home_dir()))
+}
+
+/// See the macOS variant; on Windows the path is the per-user data-local
+/// application directory's `logs` subdirectory.
+#[cfg(target_os = "windows")]
+pub fn log_dir() -> Option<PathBuf> {
+    let dirs = directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)?;
+    Some(dirs.data_local_dir().join(LOG_SUBDIR))
+}
+
+/// Fallback for any other platform: no known per-OS log location.
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub fn log_dir() -> Option<PathBuf> {
+    None
 }
 
 /// Decides whether the live log file should be rotated to its backup at startup.
@@ -119,6 +161,7 @@ pub fn init() -> WorkerGuard {
 mod tests {
     use super::*;
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn log_dir_layout_matches_macos_convention() {
         let home = Path::new("/Users/alice");

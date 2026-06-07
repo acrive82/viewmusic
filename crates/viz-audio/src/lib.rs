@@ -28,7 +28,10 @@ pub mod dsp;
 pub mod onset;
 pub mod permission;
 pub mod pipeline;
+pub mod resample;
 pub mod tap;
+#[cfg(target_os = "windows")]
+pub mod tap_windows;
 pub mod watchdog;
 
 pub use dsp::{Analyzer, FFT_SIZE, HOP_SIZE, SPECTRUM_BINS};
@@ -40,7 +43,8 @@ pub use pipeline::{AudioHandle, AudioPipeline, BEAT_QUEUE_CAP};
 pub use tap::{CaptureError, CaptureSource, CaptureStage, SampleSink, REQUESTED_BUFFER_FRAMES};
 pub use watchdog::{
     initial_backoff, next_backoff, CaptureHealth, CaptureState, PollDecision, RebuildAction,
-    RebuildLog, RebuildScheduler, WatchdogPolicy, WatchdogVerdict, ZERO_BUFFER_REBUILD_SECS,
+    RebuildLog, RebuildScheduler, WatchdogPolicy, WatchdogVerdict, TREAT_IDLE_AS_FAULT,
+    ZERO_BUFFER_REBUILD_SECS,
 };
 
 // Re-export the core vocabulary for downstream convenience.

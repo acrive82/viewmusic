@@ -33,9 +33,10 @@ use viz_core::{ArtifactId, FeatureFrame};
 use viz_render::{DegradeController, Renderer};
 
 use crate::app_state::{
-    select_view, AppView, GuidanceVariant, CAPTURE_START_FAILED_MESSAGE, NO_ARTIFACTS_MESSAGE,
-    OPEN_SETTINGS_BUTTON, PERMISSION_ALREADY_ALLOWED_HINT, PERMISSION_SETTINGS_PATH,
-    PERMISSION_TITLE, PERMISSION_WAITING_HINT, PERMISSION_WHY, SETTINGS_URL,
+    select_view, AppView, GuidanceVariant, AUDIO_PERMISSION_APPLIES, CAPTURE_START_FAILED_MESSAGE,
+    NO_ARTIFACTS_MESSAGE, OPEN_SETTINGS_BUTTON, PERMISSION_ALREADY_ALLOWED_HINT,
+    PERMISSION_SETTINGS_PATH, PERMISSION_TITLE, PERMISSION_WAITING_HINT, PERMISSION_WHY,
+    SETTINGS_URL, WAITING_FOR_AUDIO_HINT, WAITING_FOR_AUDIO_TITLE,
 };
 use crate::overlay::{decide_visibility, Overlay};
 use crate::persist::{should_save_window, WindowState, WINDOW_SAVE_DEBOUNCE};
@@ -154,6 +155,9 @@ pub enum ViewSnapshot {
         /// Whether to render the waiting hint and/or the Open-Settings button.
         variant: GuidanceVariant,
     },
+    /// Platforms without an audio-capture permission (Windows): show the neutral,
+    /// persistent "waiting for audio — play something" hint (no consent copy).
+    WaitingForAudio,
     /// Active visualizer.
     Active,
 }
@@ -168,6 +172,7 @@ impl From<&AppView> for ViewSnapshot {
             AppView::PermissionGuidance { variant } => {
                 ViewSnapshot::PermissionGuidance { variant: *variant }
             }
+            AppView::WaitingForAudio => ViewSnapshot::WaitingForAudio,
             AppView::Active => ViewSnapshot::Active,
         }
     }
@@ -887,7 +892,12 @@ impl RenderCallback for VizApp {
 
         let (feature, dt, capture_failure, permission) = self.poll_audio();
         let has_artifact = self.runtime.is_some();
-        let view = select_view(has_artifact, capture_failure.as_deref(), permission);
+        let view = select_view(
+            has_artifact,
+            capture_failure.as_deref(),
+            permission,
+            AUDIO_PERMISSION_APPLIES,
+        );
 
         let aspect = if frame.config.height > 0 {
             frame.config.width as f32 / frame.config.height as f32
@@ -1093,6 +1103,16 @@ fn render_overlay(ctx: &egui::Context, model: &mut OverlayModel) {
                 ui.label(PERMISSION_SETTINGS_PATH);
             });
         }
+        ViewSnapshot::WaitingForAudio => {
+            // Neutral, persistent, non-flashing hint for platforms without an
+            // audio-capture permission (Windows): capture is live, nothing is
+            // playing yet. No consent or System-Settings language.
+            centered_message(ctx, "waiting-for-audio", |ui| {
+                ui.heading(WAITING_FOR_AUDIO_TITLE);
+                ui.add_space(8.0);
+                ui.label(WAITING_FOR_AUDIO_HINT);
+            });
+        }
         ViewSnapshot::PermissionGuidance { variant } => {
             // Persistent permission guidance. Same screen for both variants; the
             // Waiting variant adds the dialog hint, the Denied variant adds the
@@ -1259,7 +1279,12 @@ mod tests {
         // flash. This is the end-to-end shape of the R1.2 fix.
         let capture_failure = non_permission_capture_failure(true, failed, false);
         assert_eq!(
-            select_view(true, capture_failure.as_deref(), PermissionState::Granted),
+            select_view(
+                true,
+                capture_failure.as_deref(),
+                PermissionState::Granted,
+                AUDIO_PERMISSION_APPLIES,
+            ),
             AppView::Active,
             "a rebuild-in-progress running fault must not flip a Granted view away \
              from Active (root-cause R1.2 regression)"

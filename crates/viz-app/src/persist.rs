@@ -1,10 +1,16 @@
 //! Persistent application state.
 //!
 //! Two small JSON documents live under the platform config directory resolved by
-//! [`directories::ProjectDirs::from("io.github", "acrive82", "viewmusic")`]. The
-//! `directories` crate joins the three components with `.` into a reverse-DNS
-//! bundle id, so on macOS this is
-//! `~/Library/Application Support/io.github.acrive82.viewmusic/`:
+//! [`directories::ProjectDirs::from("io.github", "acrive82", "viewmusic")`].
+//! `ProjectDirs::config_dir()` maps per platform:
+//!
+//! * **macOS** — the three components join with `.` into the reverse-DNS bundle
+//!   id, giving `~/Library/Application Support/io.github.acrive82.viewmusic/`.
+//! * **Windows** — the qualifier is dropped and the path is
+//!   `%APPDATA%\acrive82\viewmusic\config\` (roaming application data, with the
+//!   `config` leaf the `directories` crate appends on Windows).
+//!
+//! The two documents are:
 //!
 //! * `app_state.json` ([`AppState`]) — the last selected artifact id, per-artifact
 //!   setting values, and the top-right overlay's collapsed state.
@@ -49,9 +55,10 @@ use viz_core::ArtifactId;
 use crate::runtime::{default_setting_value, SettingValue};
 
 /// Qualifier/organization/application used to resolve the platform config dir.
-/// `directories` joins these with `.` into the reverse-DNS bundle id
-/// `io.github.acrive82.viewmusic`, giving the macOS config dir
-/// `~/Library/Application Support/io.github.acrive82.viewmusic/`.
+/// On macOS `directories` joins these with `.` into the reverse-DNS bundle id
+/// `io.github.acrive82.viewmusic`, giving the config dir
+/// `~/Library/Application Support/io.github.acrive82.viewmusic/`; on Windows the
+/// qualifier is dropped, yielding `%APPDATA%\acrive82\viewmusic\config\`.
 const QUALIFIER: &str = "io.github";
 const ORGANIZATION: &str = "acrive82";
 const APPLICATION: &str = "viewmusic";
@@ -322,8 +329,9 @@ fn parse_hex_color(s: &str) -> Option<(f64, f64, f64, f64)> {
 }
 
 /// Sub-directory of the project config dir holding user `.artifact.json` files.
-/// On macOS the full path is
-/// `~/Library/Application Support/io.github.acrive82.viewmusic/artifacts/`.
+/// The full path is the config dir (see module docs) joined with `artifacts`:
+/// `~/Library/Application Support/io.github.acrive82.viewmusic/artifacts/` on
+/// macOS, `%APPDATA%\acrive82\viewmusic\config\artifacts\` on Windows.
 const ARTIFACTS_SUBDIR: &str = "artifacts";
 
 /// Resolves the project config directory, creating it if needed. `None` if the
@@ -343,9 +351,9 @@ fn config_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
-/// Resolves the user artifacts folder, **creating it if missing**, and
-/// returns its path. On macOS this is
-/// `~/Library/Application Support/io.github.acrive82.viewmusic/artifacts/`.
+/// Resolves the user artifacts folder, **creating it if missing**, and returns its
+/// path: `~/Library/Application Support/io.github.acrive82.viewmusic/artifacts/` on
+/// macOS, `%APPDATA%\acrive82\viewmusic\config\artifacts\` on Windows.
 ///
 /// Returns `None` when the platform yields no config dir or the directory cannot be
 /// created — the app then runs on built-ins only (best-effort, never fatal). Call at

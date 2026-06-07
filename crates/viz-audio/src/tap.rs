@@ -155,7 +155,9 @@ impl fmt::Display for CaptureError {
 
 impl std::error::Error for CaptureError {}
 
-/// Number of audio channels we mix down from (stereo global tap).
+/// Number of audio channels we mix down from (stereo global tap). macOS-only —
+/// the Windows backend reads the device channel count from the mix format.
+#[cfg(target_os = "macos")]
 const TAP_CHANNELS: usize = 2;
 /// Requested device buffer size in frames (small enough to keep latency low).
 pub const REQUESTED_BUFFER_FRAMES: u32 = 128;
@@ -393,18 +395,27 @@ mod macos {
 }
 
 // ---------------------------------------------------------------------------
-// Non-macOS placeholder: keeps the crate buildable for tooling on other OSes.
+// Windows backend (WASAPI loopback). Isolated in `tap_windows` behind cfg; this
+// module just re-exports its constructor so callers see one `tap::start`.
 // ---------------------------------------------------------------------------
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+pub use crate::tap_windows::{start, WasapiCapture};
+
+// ---------------------------------------------------------------------------
+// Unsupported-OS placeholder: keeps the crate buildable for tooling elsewhere.
+// macOS and Windows have real backends above; any other target errors clearly.
+// ---------------------------------------------------------------------------
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 mod fallback {
     use super::*;
 
-    /// Capture backend constructor on non-macOS targets — always unsupported.
+    /// Capture backend constructor on unsupported targets — always unsupported.
     pub fn start(_sink: Box<dyn SampleSink>) -> Result<NoTap, CaptureError> {
         Err(CaptureError::msg(
             CaptureStage::Unsupported,
-            "system-audio capture is only implemented on macOS",
+            "system-audio capture is only implemented on macOS and Windows",
         ))
     }
 
@@ -418,7 +429,7 @@ mod fallback {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub use fallback::{start, NoTap};
 
 #[cfg(target_os = "macos")]

@@ -37,15 +37,20 @@ impl Readback {
     }
 }
 
-/// Brings up a headless wgpu device (Metal, no surface) with a panicking error hook.
+/// Brings up a headless wgpu device (no surface) with a panicking error hook.
+///
+/// On macOS the real Metal adapter is always present. On a GPU-less CI runner
+/// (Windows) set `VIEWMUSIC_FORCE_FALLBACK_ADAPTER=1` to request the software
+/// fallback adapter (WARP under DX12), which `Backends::PRIMARY` already reaches.
 fn make_device() -> (wgpu::Device, wgpu::Queue) {
     let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
     desc.backends = wgpu::Backends::METAL | wgpu::Backends::PRIMARY;
     let instance = wgpu::Instance::new(desc);
 
+    let force_fallback = std::env::var("VIEWMUSIC_FORCE_FALLBACK_ADAPTER").as_deref() == Ok("1");
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
-        force_fallback_adapter: false,
+        force_fallback_adapter: force_fallback,
         compatible_surface: None,
     }))
     .expect("no GPU adapter for headless test");

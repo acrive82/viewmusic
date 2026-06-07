@@ -26,6 +26,13 @@
 
 use viz_audio::PermissionState;
 
+/// Whether this platform gates system-audio capture behind a user-granted
+/// permission. macOS does (the "Screen & System Audio Recording" TCC grant), so
+/// the permission states render the consent/Settings guidance. Windows does not —
+/// WASAPI loopback needs no consent — so there the same states render a neutral
+/// "waiting for audio" hint instead (see [`select_view`]).
+pub const AUDIO_PERMISSION_APPLIES: bool = cfg!(target_os = "macos");
+
 /// The macOS System Settings path the permission guidance points the user to.
 pub const PERMISSION_SETTINGS_PATH: &str =
     "System Settings → Privacy & Security → Screen & System Audio Recording";
@@ -69,6 +76,16 @@ pub const CAPTURE_START_FAILED_MESSAGE: &str =
 /// The message shown when no artifacts loaded successfully (empty library).
 pub const NO_ARTIFACTS_MESSAGE: &str = "No artifacts available";
 
+/// Title of the neutral "waiting for audio" hint shown on platforms without an
+/// audio-capture permission (Windows). It is informational, not an error: capture
+/// is live and healthy, there simply is nothing playing yet.
+pub const WAITING_FOR_AUDIO_TITLE: &str = "Waiting for audio";
+
+/// The neutral, persistent, non-flashing body line shown on platforms without an
+/// audio-capture permission (Windows) while no audio has been captured yet. No
+/// consent or System-Settings language — just an invitation to play something.
+pub const WAITING_FOR_AUDIO_HINT: &str = "Play some audio and the visualizer starts automatically.";
+
 /// What the window should display this frame (pure state; no GUI types).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AppView {
@@ -87,6 +104,12 @@ pub enum AppView {
         /// Which guidance variant to render (waiting vs. denied/full).
         variant: GuidanceVariant,
     },
+    /// Platforms without an audio-capture permission (Windows): capture is live
+    /// and healthy but no audio has been observed yet. Renders a neutral,
+    /// persistent, non-flashing "waiting for audio — play something" hint with no
+    /// consent or System-Settings language. Replaces the permission guidance
+    /// entirely on such platforms.
+    WaitingForAudio,
     /// An artifact is active, capture is healthy, and the permission is granted:
     /// render the visualizer.
     Active,
@@ -109,12 +132,24 @@ pub enum GuidanceVariant {
 /// * `capture_failure` — `Some(msg)` for a *non-permission* capture failure
 ///   (a generic `CaptureState::Failed`, or a failed-to-start pipeline);
 ///   `None` otherwise;
-/// * `permission` — the live [`PermissionState`] from the audio handle.
+/// * `permission` — the live [`PermissionState`] from the audio handle;
+/// * `audio_permission_applies` — whether this platform gates capture behind a
+///   user-granted permission ([`AUDIO_PERMISSION_APPLIES`]: `true` on macOS,
+///   `false` on Windows).
 ///
-/// Priority order: no-artifact → non-permission capture failure → `Unknown`
-/// guidance → `Denied` guidance → visualization. There is no frame in which capture
-/// is permission-unavailable and the guidance is absent — guidance is always on
-/// screen until the permission is actually granted.
+/// Priority order: no-artifact → non-permission capture failure → the
+/// permission/waiting state → visualization. There is no frame in which capture is
+/// not yet producing audio and *some* explanatory screen is absent — the window
+/// always says what it is doing.
+///
+/// **Platform-correct guidance.** On a platform that gates capture behind a
+/// permission (`audio_permission_applies = true`, macOS), the non-granted states
+/// map to the consent guidance screen: `Unknown → Waiting`, `Denied → Denied`
+/// (with the Open-Settings button). On a platform with no such permission
+/// (`audio_permission_applies = false`, Windows — WASAPI loopback needs no
+/// consent), both non-granted states map instead to the neutral
+/// [`AppView::WaitingForAudio`] hint — no consent or System-Settings language is
+/// ever shown there.
 ///
 /// A non-permission capture failure outranks the permission state: a genuine
 /// device error should show the capture-health message even if the permission
@@ -123,6 +158,7 @@ pub fn select_view(
     has_active_artifact: bool,
     capture_failure: Option<&str>,
     permission: PermissionState,
+    audio_permission_applies: bool,
 ) -> AppView {
     if !has_active_artifact {
         return AppView::NoArtifacts;
@@ -132,6 +168,15 @@ pub fn select_view(
             message: message.to_owned(),
         };
     }
+    if permission == PermissionState::Granted {
+        return AppView::Active;
+    }
+    // Not yet granted (Unknown grace window, or Denied). On platforms without an
+    // audio-capture permission there is nothing to consent to — show the neutral
+    // waiting hint instead of any consent/Settings copy.
+    if !audio_permission_applies {
+        return AppView::WaitingForAudio;
+    }
     match permission {
         PermissionState::Unknown => AppView::PermissionGuidance {
             variant: GuidanceVariant::Waiting,
@@ -139,6 +184,7 @@ pub fn select_view(
         PermissionState::Denied => AppView::PermissionGuidance {
             variant: GuidanceVariant::Denied,
         },
+        // Unreachable: Granted is handled above, but keep the match exhaustive.
         PermissionState::Granted => AppView::Active,
     }
 }
@@ -147,16 +193,27 @@ pub fn select_view(
 mod tests {
     use super::*;
 
+    /// The macOS-style permission policy (capture gated behind a TCC grant), used
+    /// independently of the host OS so the platform branches are testable anywhere.
+    const PERMISSION: bool = true;
+    /// The Windows-style policy (no audio-capture permission).
+    const NO_PERMISSION: bool = false;
+
     #[test]
     fn no_artifact_takes_precedence() {
         // Even if capture failed / permission missing, with no artifact we show the
         // empty-library state.
         assert_eq!(
-            select_view(false, None, PermissionState::Granted),
+            select_view(false, None, PermissionState::Granted, PERMISSION),
             AppView::NoArtifacts
         );
         assert_eq!(
-            select_view(false, Some("boom"), PermissionState::Denied),
+            select_view(false, Some("boom"), PermissionState::Denied, PERMISSION),
+            AppView::NoArtifacts
+        );
+        // Same precedence on a platform without a permission concept.
+        assert_eq!(
+            select_view(false, None, PermissionState::Denied, NO_PERMISSION),
             AppView::NoArtifacts
         );
     }
@@ -164,7 +221,24 @@ mod tests {
     #[test]
     fn non_permission_failure_maps_to_capture_failed() {
         assert_eq!(
-            select_view(true, Some("device error"), PermissionState::Unknown),
+            select_view(
+                true,
+                Some("device error"),
+                PermissionState::Unknown,
+                PERMISSION
+            ),
+            AppView::CaptureFailed {
+                message: "device error".to_owned()
+            }
+        );
+        // A real device error still outranks the waiting hint on Windows too.
+        assert_eq!(
+            select_view(
+                true,
+                Some("device error"),
+                PermissionState::Unknown,
+                NO_PERMISSION
+            ),
             AppView::CaptureFailed {
                 message: "device error".to_owned()
             }
@@ -176,17 +250,24 @@ mod tests {
         // A genuine device error shows the capture-health message even when the
         // permission machine is still Granted.
         assert_eq!(
-            select_view(true, Some("device error"), PermissionState::Granted),
+            select_view(
+                true,
+                Some("device error"),
+                PermissionState::Granted,
+                PERMISSION
+            ),
             AppView::CaptureFailed {
                 message: "device error".to_owned()
             }
         );
     }
 
+    // --- macOS permission policy (audio_permission_applies = true) ----------
+
     #[test]
     fn unknown_maps_to_waiting_guidance() {
         assert_eq!(
-            select_view(true, None, PermissionState::Unknown),
+            select_view(true, None, PermissionState::Unknown, PERMISSION),
             AppView::PermissionGuidance {
                 variant: GuidanceVariant::Waiting
             }
@@ -196,7 +277,7 @@ mod tests {
     #[test]
     fn denied_maps_to_full_guidance() {
         assert_eq!(
-            select_view(true, None, PermissionState::Denied),
+            select_view(true, None, PermissionState::Denied, PERMISSION),
             AppView::PermissionGuidance {
                 variant: GuidanceVariant::Denied
             }
@@ -206,7 +287,7 @@ mod tests {
     #[test]
     fn granted_with_healthy_capture_is_active() {
         assert_eq!(
-            select_view(true, None, PermissionState::Granted),
+            select_view(true, None, PermissionState::Granted, PERMISSION),
             AppView::Active
         );
     }
@@ -216,8 +297,62 @@ mod tests {
         // Genuine silence surfaces as Granted + no capture failure; we must NOT
         // pause or show guidance — the artifact settles on zeroed features.
         assert_eq!(
-            select_view(true, None, PermissionState::Granted),
+            select_view(true, None, PermissionState::Granted, PERMISSION),
             AppView::Active
         );
+    }
+
+    // --- Windows policy (audio_permission_applies = false) ------------------
+
+    #[test]
+    fn windows_unknown_maps_to_waiting_for_audio_not_consent() {
+        // On Windows there is no permission to ask for: the Unknown (grace) state
+        // must surface the neutral waiting hint, never the consent guidance.
+        assert_eq!(
+            select_view(true, None, PermissionState::Unknown, NO_PERMISSION),
+            AppView::WaitingForAudio
+        );
+    }
+
+    #[test]
+    fn windows_denied_maps_to_waiting_for_audio_not_settings() {
+        // The permission machine can still land in Denied after the silent grace
+        // window, but on Windows that must NOT show System-Settings/consent copy —
+        // it is the same neutral "play something" hint.
+        assert_eq!(
+            select_view(true, None, PermissionState::Denied, NO_PERMISSION),
+            AppView::WaitingForAudio
+        );
+    }
+
+    #[test]
+    fn windows_granted_is_active() {
+        // Once audio flows, Windows shows the visualizer just like macOS.
+        assert_eq!(
+            select_view(true, None, PermissionState::Granted, NO_PERMISSION),
+            AppView::Active
+        );
+    }
+
+    #[test]
+    fn windows_never_shows_permission_guidance() {
+        // Exhaustive over the permission states: none of them yields the consent
+        // guidance screen when the platform has no audio permission.
+        for permission in [
+            PermissionState::Unknown,
+            PermissionState::Denied,
+            PermissionState::Granted,
+        ] {
+            let view = select_view(true, None, permission, NO_PERMISSION);
+            assert!(
+                !matches!(view, AppView::PermissionGuidance { .. }),
+                "Windows must never render permission consent guidance ({permission:?})"
+            );
+        }
+    }
+
+    #[test]
+    fn platform_constant_matches_target() {
+        assert_eq!(AUDIO_PERMISSION_APPLIES, cfg!(target_os = "macos"));
     }
 }

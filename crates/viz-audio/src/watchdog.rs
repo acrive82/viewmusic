@@ -21,6 +21,16 @@
 //! completed-rebuild-that-is-still-zero is also the third revocation condition for
 //! the permission machine.
 //!
+//! **Platform-aware idle policy.** Whether sustained zero buffers while running are
+//! a *fault* depends on the backend (see [`TREAT_IDLE_AS_FAULT`]). The macOS process
+//! tap keeps delivering buffers, so all-zero hops signal the bug or a revoked grant
+//! — a fault worth rebuilding. WASAPI loopback on Windows delivers **no packets at
+//! all** during silence; that idle is normal, not broken, so the Windows policy never
+//! schedules a rebuild for pure silence. There the only rebuild trigger is an
+//! **explicit device change** (a new default endpoint), pulsed through
+//! [`CaptureHealth::note_device_changed`] and forced through
+//! [`WatchdogPolicy::observe`]'s `device_changed` input regardless of the idle policy.
+//!
 //! The watchdog runs on its own thread; it never touches the IOProc hot path. It
 //! observes capture liveness through an atomic "frames seen with non-zero RMS"
 //! signal published by the analyzer side, and exposes [`CaptureState`] via a
@@ -87,6 +97,14 @@ struct Inner {
     /// reads it to feed [`crate::permission::Observation::saw_nonzero`]. Zero
     /// hot-path cost beyond one branch + relaxed store on active hops.
     saw_nonzero: AtomicBool,
+    /// Edge-triggered "the audio device changed" request. Pulsed `true` by a
+    /// device-change notification (the Windows `IMMNotificationClient` default-device
+    /// / device-state callback) and consumed once by the watchdog, which then
+    /// rebuilds the capture against the new default endpoint. Backend-agnostic: any
+    /// platform that can detect an endpoint change may pulse it. A single relaxed
+    /// store from the (trivial) notification callback; the watchdog swaps it back to
+    /// `false` when it acts. See [`CaptureHealth::note_device_changed`].
+    device_changed: AtomicBool,
     /// Published state (read off the hot path only).
     state: Mutex<CaptureState>,
 }
@@ -106,6 +124,7 @@ impl CaptureHealth {
                 total_hops: AtomicU64::new(0),
                 running: AtomicBool::new(true),
                 saw_nonzero: AtomicBool::new(false),
+                device_changed: AtomicBool::new(false),
                 state: Mutex::new(CaptureState::Active),
             }),
         }
@@ -133,6 +152,32 @@ impl CaptureHealth {
     /// "granted" latch). Read off the hot path by the watchdog.
     pub fn saw_nonzero(&self) -> bool {
         self.inner.saw_nonzero.load(Ordering::Relaxed)
+    }
+
+    /// Requests a capture rebuild because the audio device changed.
+    ///
+    /// This is the explicit, backend-agnostic device-change trigger. The Windows
+    /// `IMMNotificationClient` calls it from its (deliberately trivial) COM callback
+    /// when the default render endpoint or a device's state changes; the watchdog
+    /// thread consumes the request via [`CaptureHealth::take_device_changed`] and
+    /// performs the actual teardown + rebuild off the COM thread. The request is
+    /// edge-triggered (one pending rebuild regardless of how many notifications
+    /// arrive before the watchdog acts) and is independent of the idle-silence
+    /// policy, so it fires even on a platform where pure silence is healthy.
+    ///
+    /// Lock-free: a single relaxed store. Safe to call from any thread, including a
+    /// COM notification callback that must do as little as possible.
+    #[inline]
+    pub fn note_device_changed(&self) {
+        self.inner.device_changed.store(true, Ordering::Relaxed);
+    }
+
+    /// Consumes a pending device-change rebuild request, returning `true` exactly
+    /// once per pulse. Called by the watchdog thread each poll; on `true` it forces a
+    /// rebuild via [`WatchdogPolicy::observe`]'s `device_changed` input regardless of
+    /// the idle policy. Lock-free (a relaxed swap).
+    pub fn take_device_changed(&self) -> bool {
+        self.inner.device_changed.swap(false, Ordering::Relaxed)
     }
 
     /// Sets whether the backend currently believes it is running.
@@ -187,6 +232,24 @@ pub enum WatchdogVerdict {
     NeedsRebuild,
 }
 
+/// Whether sustained zero buffers *while the backend is running* should be treated
+/// as a capture fault that schedules a rebuild.
+///
+/// On macOS this is `true`: the process tap is expected to keep delivering buffers
+/// (zero-filled during real silence), so a sustained run of all-zero hops is the
+/// signature of the 14.x all-zero tap bug or a revoked grant — a genuine fault that
+/// the watchdog repairs with a full teardown + restart.
+///
+/// On Windows it is `false`: WASAPI loopback delivers **no packets at all** while
+/// nothing is rendering ("when nothing is playing, there is nothing to capture").
+/// The backend keeps the analyzer clock advancing with zero-fill, but the capture
+/// itself is idle, not broken. Treating that idle silence as a fault would spin the
+/// rebuild backoff for the entire time the user is not playing audio. On Windows the
+/// only thing that warrants a rebuild is an *explicit* device change (see
+/// [`WatchdogPolicy::observe`]'s `device_changed` input), which the
+/// `IMMNotificationClient` pulses through [`CaptureHealth::note_device_changed`].
+pub const TREAT_IDLE_AS_FAULT: bool = cfg!(target_os = "macos");
+
 /// Pure watchdog policy. Tracks how long the capture has shown zero signal while
 /// claiming to run, and decides when a rebuild is warranted. The threaded driver
 /// in `pipeline` wraps this with timing and rebuild execution.
@@ -197,34 +260,84 @@ pub struct WatchdogPolicy {
     last_activity: Instant,
     /// Rebuild trigger threshold.
     zero_window: Duration,
+    /// Whether sustained idle-silence (zero hops while running) is a rebuild fault.
+    /// `true` on macOS (the all-zero tap bug is real), `false` on Windows (loopback
+    /// legitimately delivers no packets during silence). An explicit device change
+    /// always forces a rebuild regardless of this flag.
+    treat_idle_as_fault: bool,
 }
 
 impl WatchdogPolicy {
-    /// New policy with the default ~3 s zero-buffer window.
+    /// New policy with the platform-correct idle policy and the default ~3 s
+    /// zero-buffer window. macOS treats idle-silence as a fault; Windows does not
+    /// (see [`TREAT_IDLE_AS_FAULT`]).
     pub fn new() -> Self {
         Self::with_window(Duration::from_secs_f64(ZERO_BUFFER_REBUILD_SECS))
     }
 
-    /// New policy with a custom zero-buffer window (used by tests).
+    /// New policy with a custom zero-buffer window and the platform-correct idle
+    /// policy (used by tests that only need to tune the timing).
     pub fn with_window(zero_window: Duration) -> Self {
+        Self::with_window_and_idle_policy(zero_window, TREAT_IDLE_AS_FAULT)
+    }
+
+    /// New policy with both the zero-buffer window and the idle policy chosen
+    /// explicitly. Used by unit tests to exercise *both* the macOS-style
+    /// (`treat_idle_as_fault = true`) and Windows-style (`= false`) branches on a
+    /// single host, independent of the host OS.
+    pub fn with_window_and_idle_policy(zero_window: Duration, treat_idle_as_fault: bool) -> Self {
         Self {
             last_nonzero: 0,
             last_activity: Instant::now(),
             zero_window,
+            treat_idle_as_fault,
         }
     }
 
-    /// Feeds the latest counters and current time, returning a verdict.
+    /// Whether this policy treats sustained idle-silence while running as a fault.
+    pub fn treats_idle_as_fault(&self) -> bool {
+        self.treat_idle_as_fault
+    }
+
+    /// Feeds the latest counters, the explicit device-change signal, and the current
+    /// time, returning a verdict.
     ///
     /// `running` reflects whether the backend believes capture is live; genuine
     /// stopped capture is never treated as a zero-buffer fault here.
-    pub fn observe(&mut self, nonzero_hops: u64, running: bool, now: Instant) -> WatchdogVerdict {
+    ///
+    /// `device_changed` is the explicit, backend-agnostic rebuild trigger (the
+    /// Windows `IMMNotificationClient` default-device / device-state change). It
+    /// forces a [`WatchdogVerdict::NeedsRebuild`] **regardless of the idle policy** —
+    /// a device change means the endpoint we were capturing from is gone or replaced,
+    /// so the live capture must be torn down and rebuilt against the new default
+    /// endpoint even on a platform where idle-silence is healthy. Fresh non-zero
+    /// audio observed on the same poll still wins (it cannot be a stale endpoint), so
+    /// the latch self-heals.
+    pub fn observe(
+        &mut self,
+        nonzero_hops: u64,
+        running: bool,
+        device_changed: bool,
+        now: Instant,
+    ) -> WatchdogVerdict {
         if nonzero_hops > self.last_nonzero {
             self.last_nonzero = nonzero_hops;
             self.last_activity = now;
             return WatchdogVerdict::Healthy;
         }
-        if running && now.duration_since(self.last_activity) >= self.zero_window {
+        // An explicit device change always warrants a rebuild, independent of the
+        // idle policy — even on Windows where pure silence is healthy.
+        if device_changed {
+            self.last_activity = now;
+            return WatchdogVerdict::NeedsRebuild;
+        }
+        // Sustained zero buffers while running are a fault only where the platform
+        // guarantees the backend keeps delivering buffers (macOS). On Windows the
+        // backend stays silent during idle by design, so this branch is skipped.
+        if self.treat_idle_as_fault
+            && running
+            && now.duration_since(self.last_activity) >= self.zero_window
+        {
             // Reset the clock so we don't re-trigger every tick after firing.
             self.last_activity = now;
             return WatchdogVerdict::NeedsRebuild;
@@ -438,43 +551,173 @@ pub fn failure_message(err: &CaptureError) -> String {
 mod tests {
     use super::*;
 
+    /// macOS-style policy (`treat_idle_as_fault = true`), independent of the host OS.
+    fn macos_policy(window: Duration) -> WatchdogPolicy {
+        WatchdogPolicy::with_window_and_idle_policy(window, true)
+    }
+
+    /// Windows-style policy (`treat_idle_as_fault = false`), independent of host OS.
+    fn windows_policy(window: Duration) -> WatchdogPolicy {
+        WatchdogPolicy::with_window_and_idle_policy(window, false)
+    }
+
     #[test]
     fn genuine_silence_is_not_a_fault_when_not_running() {
-        let mut p = WatchdogPolicy::with_window(Duration::from_millis(50));
+        let mut p = macos_policy(Duration::from_millis(50));
         let start = Instant::now();
         // Not running: zero buffers must never trigger a rebuild.
         let later = start + Duration::from_secs(10);
-        assert_eq!(p.observe(0, false, later), WatchdogVerdict::Healthy);
+        assert_eq!(p.observe(0, false, false, later), WatchdogVerdict::Healthy);
     }
 
     #[test]
     fn zero_buffers_while_running_triggers_rebuild() {
-        let mut p = WatchdogPolicy::with_window(Duration::from_millis(100));
+        // macOS-style: sustained zeros while running IS a fault.
+        let mut p = macos_policy(Duration::from_millis(100));
         let t0 = Instant::now();
         // First observation seeds the activity clock.
-        assert_eq!(p.observe(0, true, t0), WatchdogVerdict::Healthy);
+        assert_eq!(p.observe(0, true, false, t0), WatchdogVerdict::Healthy);
         // Before the window elapses: still healthy.
         assert_eq!(
-            p.observe(0, true, t0 + Duration::from_millis(50)),
+            p.observe(0, true, false, t0 + Duration::from_millis(50)),
             WatchdogVerdict::Healthy
         );
         // After the window with no new activity: rebuild.
         assert_eq!(
-            p.observe(0, true, t0 + Duration::from_millis(150)),
+            p.observe(0, true, false, t0 + Duration::from_millis(150)),
             WatchdogVerdict::NeedsRebuild
         );
     }
 
     #[test]
     fn activity_keeps_it_healthy() {
-        let mut p = WatchdogPolicy::with_window(Duration::from_millis(100));
+        let mut p = macos_policy(Duration::from_millis(100));
         let t0 = Instant::now();
-        p.observe(0, true, t0);
+        p.observe(0, true, false, t0);
         // New nonzero hops keep resetting the clock.
         for k in 1..10u64 {
             let t = t0 + Duration::from_millis(50 * k);
-            assert_eq!(p.observe(k, true, t), WatchdogVerdict::Healthy);
+            assert_eq!(p.observe(k, true, false, t), WatchdogVerdict::Healthy);
         }
+    }
+
+    // --- Windows idle policy (D2 / risk 1) -----------------------------------
+
+    #[test]
+    fn windows_idle_silence_is_not_a_fault() {
+        // Windows-style: WASAPI loopback delivers no packets during silence, so a
+        // sustained run of zero hops while running must STAY healthy — never a
+        // rebuild fault (the highest-impact adaptation, research risk 1).
+        let mut p = windows_policy(Duration::from_millis(100));
+        let t0 = Instant::now();
+        assert_eq!(p.observe(0, true, false, t0), WatchdogVerdict::Healthy);
+        // Far beyond the window, still running, still silent: healthy, not a rebuild.
+        for secs in [1u64, 5, 30, 300] {
+            assert_eq!(
+                p.observe(0, true, false, t0 + Duration::from_secs(secs)),
+                WatchdogVerdict::Healthy,
+                "Windows idle silence must never schedule a rebuild ({secs}s)"
+            );
+        }
+    }
+
+    #[test]
+    fn windows_first_nonzero_still_promotes_after_idle() {
+        // After long idle silence, the first non-zero hop is still observed normally
+        // (it resets the activity clock and stays healthy) — so the sticky
+        // permission "granted" latch promotes the moment real audio arrives, exactly
+        // like macOS. The Windows idle policy only suppresses the *fault*, not the
+        // normal liveness accounting.
+        let mut p = windows_policy(Duration::from_millis(100));
+        let t0 = Instant::now();
+        // Idle for a long time: healthy throughout.
+        assert_eq!(
+            p.observe(0, true, false, t0 + Duration::from_secs(60)),
+            WatchdogVerdict::Healthy
+        );
+        // First audio arrives: healthy (clock reset), and subsequent zeros are again
+        // treated as healthy idle — never a rebuild.
+        let t1 = t0 + Duration::from_secs(61);
+        assert_eq!(p.observe(1, true, false, t1), WatchdogVerdict::Healthy);
+        assert_eq!(
+            p.observe(1, true, false, t1 + Duration::from_secs(10)),
+            WatchdogVerdict::Healthy
+        );
+    }
+
+    // --- Explicit device-change trigger (D4) ---------------------------------
+
+    #[test]
+    fn device_changed_forces_rebuild_even_when_idle_policy_is_healthy() {
+        // On Windows the idle policy reports Healthy during silence, yet an explicit
+        // device change must still force a rebuild against the new endpoint.
+        let mut p = windows_policy(Duration::from_millis(100));
+        let t0 = Instant::now();
+        // Silent + running: healthy without a device change.
+        assert_eq!(
+            p.observe(0, true, false, t0 + Duration::from_secs(5)),
+            WatchdogVerdict::Healthy
+        );
+        // Same silence, but a device change pulses: rebuild regardless of the policy.
+        assert_eq!(
+            p.observe(0, true, true, t0 + Duration::from_secs(6)),
+            WatchdogVerdict::NeedsRebuild,
+            "an explicit device change must rebuild even when idle is healthy"
+        );
+    }
+
+    #[test]
+    fn device_changed_forces_rebuild_on_macos_policy_too() {
+        // The device-change trigger is backend-agnostic: it forces a rebuild on the
+        // macOS-style policy as well, before the zero window has elapsed.
+        let mut p = macos_policy(Duration::from_secs(3));
+        let t0 = Instant::now();
+        assert_eq!(p.observe(0, true, false, t0), WatchdogVerdict::Healthy);
+        // Well within the 3 s zero window — idle alone would NOT fire yet, but the
+        // device change does.
+        assert_eq!(
+            p.observe(0, true, true, t0 + Duration::from_millis(100)),
+            WatchdogVerdict::NeedsRebuild
+        );
+    }
+
+    #[test]
+    fn fresh_audio_wins_over_device_change_on_same_poll() {
+        // If real audio arrives on the same poll as a device-change pulse, the audio
+        // takes precedence (a non-zero hop cannot have come from a stale endpoint),
+        // so the verdict is Healthy and the latch self-heals.
+        let mut p = windows_policy(Duration::from_millis(100));
+        let t0 = Instant::now();
+        assert_eq!(p.observe(0, true, false, t0), WatchdogVerdict::Healthy);
+        assert_eq!(
+            p.observe(1, true, true, t0 + Duration::from_millis(10)),
+            WatchdogVerdict::Healthy
+        );
+    }
+
+    #[test]
+    fn capture_health_device_change_is_edge_triggered() {
+        // note_device_changed pulses; take_device_changed consumes exactly once.
+        let h = CaptureHealth::new();
+        assert!(!h.take_device_changed(), "no request initially");
+        h.note_device_changed();
+        assert!(h.take_device_changed(), "first take consumes the pulse");
+        assert!(!h.take_device_changed(), "second take sees nothing");
+        // Multiple notifications before a take collapse to a single pending request.
+        h.note_device_changed();
+        h.note_device_changed();
+        assert!(h.take_device_changed());
+        assert!(!h.take_device_changed());
+    }
+
+    #[test]
+    fn idle_policy_default_matches_platform() {
+        // The default policy picks the platform-correct idle policy.
+        assert_eq!(
+            WatchdogPolicy::new().treats_idle_as_fault(),
+            TREAT_IDLE_AS_FAULT
+        );
+        assert_eq!(TREAT_IDLE_AS_FAULT, cfg!(target_os = "macos"));
     }
 
     #[test]

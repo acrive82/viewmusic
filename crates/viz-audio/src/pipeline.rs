@@ -228,8 +228,15 @@ impl AudioPipeline {
             dropped_beats: dropped_beats.clone(),
         });
 
-        // Start the capture backend (macOS: cidre tap; else: error). The sink is
-        // shared so the watchdog can rebuild the tap against the same channels.
+        // Start the capture backend (macOS: cidre tap; Windows: WASAPI loopback;
+        // else: error). The sink is shared so the watchdog can rebuild the tap
+        // against the same channels.
+        //
+        // On Windows the WASAPI backend wires its device-change notification client
+        // to the shared CaptureHealth; the seam carries only a sink (to keep the
+        // macOS/Windows `tap::start` signatures identical), so the health handle is
+        // deposited just before the call. No-op on macOS.
+        wire_device_change_health(&health);
         let capture = crate::tap::start(Box::new(sink.clone()))?;
         health.set_running(true);
         let granted = capture.granted_buffer_frames();
@@ -334,7 +341,11 @@ fn spawn_watchdog(
                 let running = health.is_running();
                 let now = Instant::now();
 
-                let verdict = policy.observe(nonzero, running, now);
+                // An explicit device-change notification forces a rebuild regardless
+                // of the idle policy (on Windows the IMMNotificationClient pulses it;
+                // on macOS it stays false). Consumed once per pulse.
+                let device_changed = health.take_device_changed();
+                let verdict = policy.observe(nonzero, running, device_changed, now);
                 let decision = scheduler.poll(verdict, nonzero, now);
 
                 // Emit the once-per-episode log edge the scheduler decided on.
@@ -444,6 +455,9 @@ fn rebuild_capture(
     // keeps flagging the fault and the backed-off retries continue.
     health.set_running(false);
 
+    // Re-wire the device-change health for the rebuilt Windows backend (no-op on
+    // macOS). Deposited on this (watchdog) thread right before the start call.
+    wire_device_change_health(health);
     let fresh = crate::tap::start(Box::new(sink.clone()))?;
     let granted = fresh.granted_buffer_frames();
     *capture = Box::new(fresh);
@@ -455,6 +469,21 @@ fn rebuild_capture(
     );
     Ok(())
 }
+
+/// Deposits the shared [`CaptureHealth`] for the Windows WASAPI backend's
+/// device-change notification client to pulse, immediately before a `tap::start`
+/// call on the current thread. The capture seam carries only a sink (to keep the
+/// macOS and Windows `tap::start` signatures identical), so the health handle is
+/// handed over through this side channel. A no-op on every non-Windows platform.
+#[cfg(target_os = "windows")]
+fn wire_device_change_health(health: &CaptureHealth) {
+    crate::tap_windows::set_pending_health(health.clone());
+}
+
+/// No-op on platforms whose backend has no device-change notification client
+/// (macOS and the unsupported fallback).
+#[cfg(not(target_os = "windows"))]
+fn wire_device_change_health(_health: &CaptureHealth) {}
 
 /// A no-op [`CaptureSource`] placeholder held by the watchdog only in the window
 /// between dropping a failed rebuild's old tap and the next retry. It owns no Core

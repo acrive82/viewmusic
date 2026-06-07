@@ -5,7 +5,7 @@
 //! `(FeatureFrame, dt)` fed through [`ArtifactRuntime::frame`], comparing the
 //! staged geometry bit-for-bit. No GPU, no window, no wall clock.
 
-use viz_app::app_state::{select_view, AppView, NO_ARTIFACTS_MESSAGE};
+use viz_app::app_state::{select_view, AppView, AUDIO_PERMISSION_APPLIES, NO_ARTIFACTS_MESSAGE};
 use viz_app::runtime::ArtifactRuntime;
 use viz_audio::PermissionState;
 use viz_contract::load_artifact;
@@ -236,7 +236,12 @@ fn empty_library_state_branch_exists() {
     // …and the app's no-artifacts state branch selects the explicit message
     // (unit-testing the state-selection logic, not the GUI).
     assert_eq!(
-        select_view(false, None, PermissionState::Granted),
+        select_view(
+            false,
+            None,
+            PermissionState::Granted,
+            AUDIO_PERMISSION_APPLIES
+        ),
         AppView::NoArtifacts
     );
     assert_eq!(NO_ARTIFACTS_MESSAGE, "No artifacts available");

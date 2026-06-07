@@ -1,8 +1,8 @@
 # ViewMusic
 
-A Winamp-style real-time music visualizer for macOS. It listens to whatever is playing on
-your Mac — any app, no loopback drivers, no audio routing — and renders colorful,
-beat-reactive visuals at a hard 60 fps with low audio-to-photon latency.
+A Winamp-style real-time music visualizer for macOS and Windows. It listens to whatever is
+playing on your machine — any app, no loopback drivers, no audio routing — and renders
+colorful, beat-reactive visuals at a hard 60 fps with low audio-to-photon latency.
 
 Visualizations ("artifacts") are **plain JSON files**: declarative scenes whose geometry,
 motion, and color are mathematical formulas over the live audio features (48-band spectrum,
@@ -23,11 +23,13 @@ but a text editor — the app picks them up from a folder and reloads on demand.
 
 ## Requirements
 
-- macOS 14.4 or newer (the floor for the public system-audio capture permission flow)
-- Apple Silicon Mac
+- **macOS** 14.4 or newer (the floor for the public system-audio capture permission flow),
+  Apple Silicon, or
+- **Windows** 10 version 1803 or newer, 64-bit (audio capture uses WASAPI loopback — no
+  permission prompt, no driver)
 - Rust 1.87 or newer, to build from source
 
-## Build from source
+## Build from source (macOS)
 
 ```bash
 git clone https://github.com/acrive82/viewmusic.git
@@ -58,6 +60,30 @@ drive the visuals.
 > (`open …/ViewMusic.app`), not by running the bare binary — a terminal-launched binary is
 > not recognized as the app and the permission prompt will not appear.
 
+## Build and run (Windows)
+
+Windows capture uses **WASAPI loopback**: it records the system mix directly, with no driver,
+no audio routing, and — unlike macOS — **no permission prompt**. Just run the app and play
+audio.
+
+From a PowerShell prompt with Rust installed:
+
+```powershell
+git clone https://github.com/acrive82/viewmusic.git
+cd viewmusic
+.\packaging\bundle-windows.ps1              # release build + portable zip
+```
+
+`bundle-windows.ps1` builds `viz-app` for the `x86_64-pc-windows-msvc` target with the Visual
+C++ runtime linked statically (`-C target-feature=+crt-static`), then packages
+`viewmusic.exe` plus a short usage note into `target\viewmusic-windows-x64.zip`. The static
+runtime means the exe runs on a clean Windows 10 1803+ machine with **no Visual C++
+Redistributable** required. Unzip it anywhere and double-click `viewmusic.exe`.
+
+> **SmartScreen:** this build is **not code-signed**, so Microsoft Defender SmartScreen may
+> show an "unrecognized app" warning on first run. Click **More info → Run anyway**. The
+> warning fades as the download accrues reputation; it is not a security gate.
+
 ## Usage
 
 - **Visualizer dropdown (top-right):** pick any of the 15 built-ins or any artifact you have
@@ -78,12 +104,14 @@ Just play music from any app — the visualizer reacts immediately.
    built-in. The manual is the place to learn; the
    **[artifact contract](docs/reference/artifact-contract.md)** is the normative, last-word
    specification of every field, limit, and function.
-2. Drop a `<name>.artifact.json` file into
-   `~/Library/Application Support/io.github.acrive82.viewmusic/artifacts/`
+2. Drop a `<name>.artifact.json` file into the artifacts folder:
+   - macOS: `~/Library/Application Support/io.github.acrive82.viewmusic/artifacts/`
+   - Windows: `%APPDATA%\acrive82\viewmusic\config\artifacts\`
 3. Click **Reload artifacts** in the overlay, then pick your artifact from the dropdown.
 4. If it does not appear, the log explains why — naming the file, the JSON path, and the
    offending token:
-   `~/Library/Logs/io.github.acrive82.viewmusic/viewmusic.log`
+   - macOS: `~/Library/Logs/io.github.acrive82.viewmusic/viewmusic.log`
+   - Windows: `%LOCALAPPDATA%\acrive82\viewmusic\data\logs\viewmusic.log`
 
 The machine-readable JSON Schema lives at
 [`docs/reference/artifact.schema.json`](docs/reference/artifact.schema.json) (regenerate it
@@ -91,10 +119,11 @@ with `cargo run -p viz-contract --bin export-schema`).
 
 ## Platform support
 
-ViewMusic is **macOS-only today.** Its audio capture is built on the macOS Core Audio
-process-tap API, which has no direct cross-platform equivalent. A grounded analysis of what a
-Windows port would involve — component by component, with effort estimates, risks, and a
-recommendation — is in
+ViewMusic runs on **macOS and Windows.** Audio capture is the only platform-specific layer,
+isolated behind a single capture seam: macOS uses the Core Audio process-tap API, and Windows
+10 1803+ (x64) uses WASAPI loopback. Everything downstream — the DSP, beat detection,
+renderer (wgpu: Metal on macOS, DX12 on Windows), windowing, UI, and the artifact engine — is
+shared, portable Rust. The component-by-component design record for the Windows port is in
 [`docs/windows-port-analysis.md`](docs/windows-port-analysis.md).
 
 ## Building and testing
@@ -106,9 +135,16 @@ cargo test --workspace      # DSP synthetic-signal tests, formula VM property te
 cargo clippy --workspace --all-targets
 ```
 
+The test suite is hardware-free and runs identically on both platforms. CI
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds and tests on macOS (Apple
+Silicon) and Windows x64 on every push and pull request; the Windows job runs the GPU smoke
+test against the WARP software adapter and uploads the portable zip. The Windows backend can
+be cross-checked from any host with `cargo check --target x86_64-pc-windows-msvc --workspace`.
+
 Workspace layout: `viz-core` (shared types) · `viz-expr` (formula bytecode VM) ·
-`viz-contract` (JSON contract, loader, artifact library) · `viz-audio` (Core Audio process
-tap + DSP) · `viz-render` (wgpu render pipelines) · `viz-app` (winit/egui shell).
+`viz-contract` (JSON contract, loader, artifact library) · `viz-audio` (system-audio capture
+— Core Audio tap on macOS, WASAPI loopback on Windows — + DSP) · `viz-render` (wgpu render
+pipelines) · `viz-app` (winit/egui shell).
 
 ## License
 
