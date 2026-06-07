@@ -1,0 +1,55 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "recipe-calm-silence",
+    "name": "Recipe: Calm on Silence",
+    "description": "A deliberately busy scene — a churning plasma field plus a swarm of spectrum dots — that nonetheless falls to a calm, dim, barely-moving idle when the music stops. Every brightness term is multiplied by smoothstep(0.02, 0.12, energy): below ~0.02 energy the gate is 0 and the scene rests at a faint floor; above ~0.12 it is fully lit. Motion speeds are scaled by energy too, so silence settles the swarm. Contract section 3: zeroed features during silence, but t and dt keep advancing — gate by audio, not by time.",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "swarm": { "type": "number", "label": "Swarm size", "min": 16, "max": 300, "step": 1, "default": 120 },
+    "scale": { "type": "number", "label": "Plasma scale", "min": 1, "max": 8, "step": 0.1, "default": 3.5 },
+    "floor": { "type": "color", "label": "Idle floor", "default": "#0a1424" }
+  },
+  "vars": {
+    "phase": { "init": "0", "frame": "phase + dt * (0.1 + 1.5 * energy)" },
+    "spin": { "init": "0", "frame": "spin + dt * (0.05 + 1.2 * energy)" }
+  },
+  "scene": [
+    {
+      "type": "field",
+      "resolution": 48,
+      "blend": "alpha",
+      "cell": {
+        "color": {
+          "model": "hsva",
+          "h": "200 + 80 * sin(x * settings.scale + phase) * cos(y * settings.scale - phase)",
+          "s": "0.7",
+          "v": "(settings.floor_r + settings.floor_g + settings.floor_b) * 0.2 + smoothstep(0.02, 0.12, energy) * (0.2 + 0.8 * abs(sin(x * settings.scale + phase) * cos(y * settings.scale - phase * 0.7)))",
+          "a": "1"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": "settings.swarm",
+      "element": {
+        "x": "(0.2 + 0.7 * rand(i)) * cos(u * tau + spin + rand(i + 11) * tau) / aspect",
+        "y": "(0.2 + 0.7 * rand(i)) * sin(u * tau + spin + rand(i + 11) * tau)",
+        "w": "(0.01 + 0.02 * band(u)) / aspect",
+        "h": "0.01 + 0.02 * band(u)",
+        "rot": "0",
+        "color": {
+          "model": "hsva",
+          "h": "u * 320",
+          "s": "0.8",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.3 + 0.7 * band(u))",
+          "a": "0.85"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "0.75" }
+}

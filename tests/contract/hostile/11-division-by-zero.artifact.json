@@ -1,0 +1,9 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "div-by-zero", "name": "Division By Zero" },
+  "scene": [
+    { "type": "field", "resolution": 4,
+      "cell": { "color": { "model": "rgba",
+        "r": "1 / 0", "g": "energy / 0", "b": "(t - t) / (t - t)" } } }
+  ]
+}

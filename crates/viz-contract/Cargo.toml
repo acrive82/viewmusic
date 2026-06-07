@@ -1,0 +1,24 @@
+[package]
+name = "viz-contract"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "export-schema"
+path = "src/bin/export_schema.rs"
+
+[dependencies]
+viz-core = { workspace = true }
+viz-expr = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true, features = ["indexmap2"] }
+jsonschema = { workspace = true }
+indexmap = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

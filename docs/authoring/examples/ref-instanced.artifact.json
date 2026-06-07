@@ -1,0 +1,31 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "ref-instanced",
+    "name": "Reference: Instanced Grid",
+    "description": "One instanced layer drawing an 8x8 grid of rects. Index math (i, n) places each cell; energy gates brightness so silence stays calm.",
+    "author": "ViewMusic authoring manual"
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "alpha",
+      "count": 64,
+      "element": {
+        "x": "-0.875 + 0.25 * (i % 8)",
+        "y": "0.875 - 0.25 * floor(i / 8)",
+        "w": "0.2",
+        "h": "0.2",
+        "rot": "0",
+        "color": {
+          "model": "hsva",
+          "h": "u * 300",
+          "s": "0.8",
+          "v": "0.08 + 0.6 * smoothstep(0.02, 0.2, energy)",
+          "a": "1"
+        }
+      }
+    }
+  ]
+}

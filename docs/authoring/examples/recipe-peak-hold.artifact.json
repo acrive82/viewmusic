@@ -1,0 +1,40 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "recipe-peak-hold",
+    "name": "Recipe: Peak-Hold Meter",
+    "description": "A VU-style level meter with asymmetric smoothing: instant attack, slow release. The var formula if(low > hold, low, hold * 0.96) snaps the held value straight up to a louder low band, then eases it back down by a fixed factor each frame when the band falls — so the meter leaps to peaks and decays gracefully. A row of segment lights fills up to the held level via step(threshold, hold). Luminance is energy-gated so the panel is calm in silence; the beat is never wired to a color channel.",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "segments": { "type": "number", "label": "Segments", "min": 8, "max": 48, "step": 1, "default": 24 },
+    "release": { "type": "number", "label": "Release", "min": 0.85, "max": 0.99, "step": 0.005, "default": 0.96 },
+    "litColor": { "type": "color", "label": "Lit color", "default": "#ff5522" }
+  },
+  "vars": {
+    "hold": { "init": "0", "frame": "if(low > hold, low, hold * settings.release)" }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": "settings.segments",
+      "element": {
+        "x": "0",
+        "y": "-0.85 + 1.7 * u",
+        "w": "0.5",
+        "h": "1.4 / settings.segments",
+        "rot": "0",
+        "color": {
+          "model": "rgba",
+          "r": "settings.litColor_r * (0.08 + 0.92 * step(u, hold)) * (0.3 + 0.7 * smoothstep(0.02, 0.12, energy))",
+          "g": "settings.litColor_g * (0.08 + 0.92 * step(u, hold)) * (0.3 + 0.7 * smoothstep(0.02, 0.12, energy))",
+          "b": "settings.litColor_b * (0.08 + 0.92 * step(u, hold)) * (0.3 + 0.7 * smoothstep(0.02, 0.12, energy))",
+          "a": "0.9"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "0.5" }
+}

@@ -1,0 +1,163 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "neon-gauges",
+    "name": "Neon Gauges",
+    "description": "Retro VU meters: three glowing arc gauges (low / mid / high) drawn as rows of instanced rect segments laid along 180-degree arcs with the circle aspect idiom. Each gauge fills toward its band level through an asymmetric-smoothed value — fast attack, slow release (peak hold) — so the needles leap up and ease back down. A dimmer instanced ring of tick marks sits behind each arc. Lay the three out in a row or a triangle. Beat never flashes the panel: it only nudges the needles via the smoothed levels.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "gaugeColor": { "type": "color", "label": "Gauge color", "default": "#ff7733" },
+    "peakHold": { "type": "number", "label": "Peak hold", "min": 0.8, "max": 0.99, "step": 0.005, "default": 0.94 },
+    "layout": { "type": "choice", "label": "Layout", "options": ["row", "triangle"], "default": "row" },
+    "brightness": { "type": "number", "label": "Brightness", "min": 0.3, "max": 1.5, "step": 0.05, "default": 1 }
+  },
+  "vars": {
+    "low_g": { "init": "0", "frame": "if(low > low_g, low, low_g * settings.peakHold)" },
+    "mid_g": { "init": "0", "frame": "if(mid > mid_g, mid, mid_g * settings.peakHold)" },
+    "high_g": { "init": "0", "frame": "if(high > high_g, high, high_g * settings.peakHold)" }
+  },
+  "feedback": { "decay": "0.6" },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": 12,
+      "element": {
+        "x": "(if(settings.layout == 1, -0.5, -0.62) + (0.30 + 0.04 * i) * cos(pi - pi * i / 11)) / aspect",
+        "y": "(if(settings.layout == 1, 0.32, 0.0)) + (0.30 + 0.04 * i) * sin(pi - pi * i / 11)",
+        "w": "0.02 / aspect",
+        "h": "0.05",
+        "rot": "pi - pi * i / 11 - pi / 2",
+        "color": {
+          "model": "hsva",
+          "h": "0",
+          "s": "0",
+          "v": "0.12 * settings.brightness",
+          "a": "0.5"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": 12,
+      "element": {
+        "x": "(if(settings.layout == 1, 0.5, 0.62) + (0.30 + 0.04 * i) * cos(pi - pi * i / 11)) / aspect",
+        "y": "(if(settings.layout == 1, 0.32, 0.0)) + (0.30 + 0.04 * i) * sin(pi - pi * i / 11)",
+        "w": "0.02 / aspect",
+        "h": "0.05",
+        "rot": "pi - pi * i / 11 - pi / 2",
+        "color": {
+          "model": "hsva",
+          "h": "0",
+          "s": "0",
+          "v": "0.12 * settings.brightness",
+          "a": "0.5"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": 12,
+      "element": {
+        "x": "(0 + (0.30 + 0.04 * i) * cos(pi - pi * i / 11)) / aspect",
+        "y": "(if(settings.layout == 1, -0.42, 0.0)) + (0.30 + 0.04 * i) * sin(pi - pi * i / 11)",
+        "w": "0.02 / aspect",
+        "h": "0.05",
+        "rot": "pi - pi * i / 11 - pi / 2",
+        "color": {
+          "model": "hsva",
+          "h": "0",
+          "s": "0",
+          "v": "0.12 * settings.brightness",
+          "a": "0.5"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": 40,
+      "element": {
+        "x": "(if(settings.layout == 1, -0.5, -0.62) + (0.26 + 0.10 * floor(i / 20)) * cos(pi - pi * (i % 20) / 19)) / aspect",
+        "y": "(if(settings.layout == 1, 0.32, 0.0)) + (0.26 + 0.10 * floor(i / 20)) * sin(pi - pi * (i % 20) / 19)",
+        "w": "0.018 / aspect",
+        "h": "0.07",
+        "rot": "pi - pi * (i % 20) / 19 - pi / 2",
+        "color": {
+          "model": "hsva",
+          "h": "20 + 200 * ((i % 20) / 19)",
+          "s": "0.9",
+          "v": "settings.brightness * (0.15 + 0.85 * step((i % 20) / 19, low_g)) * (0.4 + 0.6 * smoothstep(0.02, 0.12, energy))",
+          "a": "0.92"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": 40,
+      "element": {
+        "x": "(0 + (0.26 + 0.10 * floor(i / 20)) * cos(pi - pi * (i % 20) / 19)) / aspect",
+        "y": "(if(settings.layout == 1, -0.42, 0.0)) + (0.26 + 0.10 * floor(i / 20)) * sin(pi - pi * (i % 20) / 19)",
+        "w": "0.018 / aspect",
+        "h": "0.07",
+        "rot": "pi - pi * (i % 20) / 19 - pi / 2",
+        "color": {
+          "model": "hsva",
+          "h": "20 + 200 * ((i % 20) / 19)",
+          "s": "0.9",
+          "v": "settings.brightness * (0.15 + 0.85 * step((i % 20) / 19, mid_g)) * (0.4 + 0.6 * smoothstep(0.02, 0.12, energy))",
+          "a": "0.92"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": 40,
+      "element": {
+        "x": "(if(settings.layout == 1, 0.5, 0.62) + (0.26 + 0.10 * floor(i / 20)) * cos(pi - pi * (i % 20) / 19)) / aspect",
+        "y": "(if(settings.layout == 1, 0.32, 0.0)) + (0.26 + 0.10 * floor(i / 20)) * sin(pi - pi * (i % 20) / 19)",
+        "w": "0.018 / aspect",
+        "h": "0.07",
+        "rot": "pi - pi * (i % 20) / 19 - pi / 2",
+        "color": {
+          "model": "hsva",
+          "h": "20 + 200 * ((i % 20) / 19)",
+          "s": "0.9",
+          "v": "settings.brightness * (0.15 + 0.85 * step((i % 20) / 19, high_g)) * (0.4 + 0.6 * smoothstep(0.02, 0.12, energy))",
+          "a": "0.92"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": 3,
+      "element": {
+        "x": "(if(i == 0, if(settings.layout == 1, -0.5, -0.62), if(i == 1, 0, if(settings.layout == 1, 0.5, 0.62))) + 0.33 * cos(pi - pi * if(i == 0, low_g, if(i == 1, mid_g, high_g)))) / aspect",
+        "y": "(if(i == 1, if(settings.layout == 1, -0.42, 0.0), if(settings.layout == 1, 0.32, 0.0))) + 0.33 * sin(pi - pi * if(i == 0, low_g, if(i == 1, mid_g, high_g)))",
+        "w": "0.03 / aspect",
+        "h": "0.12",
+        "rot": "pi - pi * if(i == 0, low_g, if(i == 1, mid_g, high_g)) - pi / 2",
+        "color": {
+          "model": "rgba",
+          "r": "settings.gaugeColor_r * settings.brightness * (0.2 + 0.8 * smoothstep(0.02, 0.12, energy))",
+          "g": "settings.gaugeColor_g * settings.brightness * (0.2 + 0.8 * smoothstep(0.02, 0.12, energy))",
+          "b": "settings.gaugeColor_b * settings.brightness * (0.2 + 0.8 * smoothstep(0.02, 0.12, energy))",
+          "a": "0.95"
+        }
+      }
+    }
+  ]
+}

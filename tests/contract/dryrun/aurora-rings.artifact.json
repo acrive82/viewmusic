@@ -1,0 +1,133 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "aurora-rings",
+    "name": "Aurora Rings",
+    "description": "Concentric rings whose radii pulse with low/mid/high; segments colored by the spectrum, with a beat flash core.",
+    "author": "dry-run author"
+  },
+  "settings": {
+    "ring_width": {
+      "type": "number",
+      "label": "Ring width",
+      "min": 1,
+      "max": 24,
+      "step": 0.5,
+      "default": 6
+    },
+    "palette": {
+      "type": "choice",
+      "label": "Palette",
+      "options": ["aurora", "ember", "ice"],
+      "default": "aurora"
+    },
+    "core_glow": {
+      "type": "toggle",
+      "label": "Beat core",
+      "default": true
+    }
+  },
+  "vars": {
+    "low_s":  { "init": "0", "frame": "low_s * 0.80 + low * 0.20" },
+    "mid_s":  { "init": "0", "frame": "mid_s * 0.80 + mid * 0.20" },
+    "high_s": { "init": "0", "frame": "high_s * 0.80 + high * 0.20" },
+    "flash":  { "init": "0", "frame": "max(flash * 0.90, beat)" },
+    "spin":   { "init": "0", "frame": "spin + dt * (0.15 + 0.6 * energy)" },
+    "hue0":   { "init": "0", "frame": "120 * (settings.palette == 0) + 18 * (settings.palette == 1) + 190 * (settings.palette == 2)" }
+  },
+  "feedback": { "decay": "0.84 + 0.10 * energy" },
+  "scene": [
+    {
+      "type": "field",
+      "resolution": 24,
+      "blend": "alpha",
+      "cell": {
+        "color": {
+          "model": "hsva",
+          "h": "hue0 + 40 * y",
+          "s": "0.7",
+          "v": "0.04 + 0.10 * energy * (0.5 + 0.5 * sin(x * 2.0 + spin))",
+          "a": "1"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 128,
+      "thickness": "settings.ring_width",
+      "closed": true,
+      "blend": "add",
+      "visible": "1",
+      "point": {
+        "x": "(0.28 + 0.20 * low_s) * cos(u * tau + spin) / aspect",
+        "y": "(0.28 + 0.20 * low_s) * sin(u * tau + spin)",
+        "color": {
+          "model": "hsva",
+          "h": "hue0 + 360 * u",
+          "s": "0.9",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.45 + 0.55 * band(u)) + 0.5 * flash",
+          "a": "0.9"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 128,
+      "thickness": "settings.ring_width",
+      "closed": true,
+      "blend": "add",
+      "visible": "1",
+      "point": {
+        "x": "(0.50 + 0.22 * mid_s) * cos(u * tau - spin * 0.7) / aspect",
+        "y": "(0.50 + 0.22 * mid_s) * sin(u * tau - spin * 0.7)",
+        "color": {
+          "model": "hsva",
+          "h": "hue0 + 60 + 360 * u",
+          "s": "0.85",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.40 + 0.55 * band(0.2 + 0.6 * u)) + 0.4 * flash",
+          "a": "0.85"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 128,
+      "thickness": "settings.ring_width",
+      "closed": true,
+      "blend": "add",
+      "visible": "1",
+      "point": {
+        "x": "(0.74 + 0.20 * high_s) * cos(u * tau + spin * 1.3) / aspect",
+        "y": "(0.74 + 0.20 * high_s) * sin(u * tau + spin * 1.3)",
+        "color": {
+          "model": "hsva",
+          "h": "hue0 + 120 + 360 * u",
+          "s": "0.8",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.35 + 0.6 * band(0.4 + 0.6 * u)) + 0.35 * flash",
+          "a": "0.8"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": 1,
+      "visible": "settings.core_glow",
+      "element": {
+        "x": "0",
+        "y": "0",
+        "w": "(0.10 + 0.30 * flash) / aspect",
+        "h": "0.10 + 0.30 * flash",
+        "rot": "0",
+        "color": {
+          "model": "hsva",
+          "h": "hue0 + 40 * sin(spin)",
+          "s": "0.5",
+          "v": "0.2 + 0.8 * flash",
+          "a": "0.6 + 0.4 * flash"
+        }
+      }
+    }
+  ]
+}

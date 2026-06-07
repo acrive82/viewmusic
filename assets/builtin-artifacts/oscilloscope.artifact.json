@@ -1,0 +1,75 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "oscilloscope",
+    "name": "Oscilloscope",
+    "description": "Classic Winamp waveform trace: a glowing polyline of the raw audio window, thickening with energy and flashing color on the beat. Switch between a single centered scope and a dual mirrored pair.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "amplitude": { "type": "number", "label": "Amplitude", "min": 0.1, "max": 1, "step": 0.01, "default": 0.7 },
+    "lineWeight": { "type": "number", "label": "Line weight", "min": 0.5, "max": 12, "step": 0.1, "default": 2 },
+    "mode": { "type": "choice", "label": "Trace mode", "options": ["centered", "dual mirror"], "default": "centered" },
+    "glowColor": { "type": "color", "label": "Beat glow", "default": "#33ffcc" },
+    "trails": { "type": "toggle", "label": "Trails", "default": true }
+  },
+  "vars": {
+    "glow": { "init": "0", "frame": "max(glow * 0.9, beat)" }
+  },
+  "scene": [
+    {
+      "type": "polyline",
+      "points": 256,
+      "thickness": "settings.lineWeight + 6 * energy + 4 * glow",
+      "blend": "add",
+      "point": {
+        "x": "-1 + 2 * u",
+        "y": "wave(u) * settings.amplitude * (0.6 + 0.4 * smoothstep(0.02, 0.2, energy))",
+        "color": {
+          "model": "hsva",
+          "h": "180 - 40 * wave(u) + 120 * glow",
+          "s": "0.7 + 0.3 * energy",
+          "v": "0.45 + 0.55 * (energy + glow)",
+          "a": "0.85"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 256,
+      "thickness": "settings.lineWeight + 6 * energy + 4 * glow",
+      "blend": "add",
+      "visible": "settings.mode == 1",
+      "point": {
+        "x": "-1 + 2 * u",
+        "y": "0.45 + wave(u) * settings.amplitude * 0.45 * (0.6 + 0.4 * smoothstep(0.02, 0.2, energy))",
+        "color": {
+          "model": "rgba",
+          "r": "settings.glowColor_r * (0.4 + 0.6 * glow)",
+          "g": "settings.glowColor_g * (0.4 + 0.6 * glow)",
+          "b": "settings.glowColor_b * (0.4 + 0.6 * glow)",
+          "a": "0.75"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 256,
+      "thickness": "settings.lineWeight + 6 * energy + 4 * glow",
+      "blend": "add",
+      "visible": "settings.mode == 1",
+      "point": {
+        "x": "-1 + 2 * u",
+        "y": "-0.45 - wave(u) * settings.amplitude * 0.45 * (0.6 + 0.4 * smoothstep(0.02, 0.2, energy))",
+        "color": {
+          "model": "rgba",
+          "r": "settings.glowColor_r * (0.4 + 0.6 * glow)",
+          "g": "settings.glowColor_g * (0.4 + 0.6 * glow)",
+          "b": "settings.glowColor_b * (0.4 + 0.6 * glow)",
+          "a": "0.75"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "settings.trails * 0.86" }
+}

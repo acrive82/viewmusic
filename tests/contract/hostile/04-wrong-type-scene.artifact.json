@@ -1,0 +1,5 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "wrong-type-scene", "name": "Wrong Type Scene" },
+  "scene": "this should be an array, not a string"
+}

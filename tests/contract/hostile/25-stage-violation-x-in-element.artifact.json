@@ -1,0 +1,11 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "stage-violation", "name": "Stage Violation X In Element" },
+  "scene": [
+    { "type": "instanced", "shape": "rect", "count": 4,
+      "element": {
+        "x": "x * 0.5", "y": "0", "w": "0.1", "h": "0.1",
+        "color": { "model": "rgba", "r": 1, "g": 1, "b": 1 }
+      } }
+  ]
+}

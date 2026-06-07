@@ -1,0 +1,36 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "my-pulse",
+    "name": "My Pulse",
+    "description": "Tutorial step 3 — a color setting drives the disc, still gated by energy.",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "tint": {
+      "type": "color",
+      "label": "Disc color",
+      "default": "#3aa0ff"
+    }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "count": 1,
+      "element": {
+        "x": "0",
+        "y": "0",
+        "w": "(0.2 + 0.6 * energy) / aspect",
+        "h": "0.2 + 0.6 * energy",
+        "color": {
+          "model": "rgba",
+          "r": "settings.tint_r * (0.25 + 0.6 * smoothstep(0.02, 0.2, energy))",
+          "g": "settings.tint_g * (0.25 + 0.6 * smoothstep(0.02, 0.2, energy))",
+          "b": "settings.tint_b * (0.25 + 0.6 * smoothstep(0.02, 0.2, energy))",
+          "a": "1"
+        }
+      }
+    }
+  ]
+}

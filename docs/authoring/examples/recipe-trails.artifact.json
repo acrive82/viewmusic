@@ -1,0 +1,41 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "recipe-trails",
+    "name": "Recipe: Feedback Trails",
+    "description": "Trails done the contract section 8 way: a scene-level feedback decay multiplies the previous frame before this frame draws, so additively-blended movers leave smooth glowing streaks. A small set of orbiting dots sweep the canvas; with a high decay they smear into ribbons, with a low decay they stay crisp. Decay rises a little with energy so louder passages streak longer, and brightness is energy-gated so the trails fade to a calm dark wash in silence.",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "movers": { "type": "number", "label": "Movers", "min": 1, "max": 12, "step": 1, "default": 5 },
+    "radius": { "type": "number", "label": "Orbit radius", "min": 0.2, "max": 0.85, "step": 0.01, "default": 0.55 },
+    "persistence": { "type": "number", "label": "Trail persistence", "min": 0, "max": 0.97, "step": 0.01, "default": 0.9 },
+    "tint": { "type": "color", "label": "Tint", "default": "#ff44aa" }
+  },
+  "vars": {
+    "spin": { "init": "0", "frame": "spin + dt * (0.4 + 1.8 * energy)" }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": "settings.movers",
+      "element": {
+        "x": "settings.radius * (0.6 + 0.4 * sin(u * tau * 3 + spin)) * cos(u * tau + spin) / aspect",
+        "y": "settings.radius * (0.6 + 0.4 * sin(u * tau * 3 + spin)) * sin(u * tau + spin)",
+        "w": "(0.025 + 0.03 * energy) / aspect",
+        "h": "0.025 + 0.03 * energy",
+        "rot": "0",
+        "color": {
+          "model": "rgba",
+          "r": "settings.tint_r * (0.15 + 0.85 * smoothstep(0.02, 0.12, energy))",
+          "g": "settings.tint_g * (0.15 + 0.85 * smoothstep(0.02, 0.12, energy))",
+          "b": "settings.tint_b * (0.15 + 0.85 * smoothstep(0.02, 0.12, energy))",
+          "a": "0.9"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "settings.persistence + (0.97 - settings.persistence) * energy * 0.5" }
+}

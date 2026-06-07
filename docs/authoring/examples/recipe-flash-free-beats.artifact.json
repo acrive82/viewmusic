@@ -1,0 +1,42 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "recipe-flash-free-beats",
+    "name": "Recipe: Flash-Free Beats",
+    "description": "How to make a beat felt without strobing the screen. A smoothed kick var, max(kick * 0.9, beat * 0.5), snaps up on a beat and eases back down; the kick then drives GEOMETRY only — it nudges the ring radius and dot size outward. Color brightness stays gated by smoothstep on energy, so it changes smoothly and never jumps with the raw beat. FORBIDDEN, by contrast (do NOT do this): v = beat, or any color channel = beat, which fires a full-luminance flash to full white on every onset — exactly the strobe the project's visual rules ban. Beat reaches geometry through a smoothed var; luminance always changes smoothly.",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "dots": { "type": "number", "label": "Dots", "min": 12, "max": 200, "step": 1, "default": 72 },
+    "radius": { "type": "number", "label": "Base radius", "min": 0.2, "max": 0.8, "step": 0.01, "default": 0.45 },
+    "punch": { "type": "number", "label": "Beat punch", "min": 0, "max": 0.3, "step": 0.01, "default": 0.16 },
+    "tint": { "type": "color", "label": "Tint", "default": "#66ffcc" }
+  },
+  "vars": {
+    "kick": { "init": "0", "frame": "max(kick * 0.9, beat * 0.5)" },
+    "spin": { "init": "0", "frame": "spin + dt * (0.12 + 0.8 * energy)" }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": "settings.dots",
+      "element": {
+        "x": "(settings.radius + settings.punch * kick) * cos(u * tau + spin) / aspect",
+        "y": "(settings.radius + settings.punch * kick) * sin(u * tau + spin)",
+        "w": "(0.018 + 0.02 * band(u) + 0.02 * kick) / aspect",
+        "h": "0.018 + 0.02 * band(u) + 0.02 * kick",
+        "rot": "0",
+        "color": {
+          "model": "rgba",
+          "r": "settings.tint_r * (0.1 + 0.9 * smoothstep(0.02, 0.12, energy) * (0.3 + 0.7 * band(u)))",
+          "g": "settings.tint_g * (0.1 + 0.9 * smoothstep(0.02, 0.12, energy) * (0.3 + 0.7 * band(u)))",
+          "b": "settings.tint_b * (0.1 + 0.9 * smoothstep(0.02, 0.12, energy) * (0.3 + 0.7 * band(u)))",
+          "a": "0.88"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "0.8" }
+}

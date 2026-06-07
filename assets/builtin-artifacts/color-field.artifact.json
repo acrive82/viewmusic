@@ -1,0 +1,36 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "color-field",
+    "name": "Color Field",
+    "description": "A full-canvas plasma field. Low/mid/high bands steer separate sine terms, brightness is gated by energy so silence falls to a calm dark wash, and feedback trails smear the motion. Shift the palette and pick a base mood.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "hueShift": { "type": "number", "label": "Hue shift", "min": 0, "max": 360, "step": 1, "default": 200 },
+    "scale": { "type": "number", "label": "Scale", "min": 1, "max": 8, "step": 0.1, "default": 3 },
+    "flow": { "type": "number", "label": "Flow speed", "min": 0, "max": 3, "step": 0.05, "default": 0.8 },
+    "palette": { "type": "choice", "label": "Palette", "options": ["aurora", "magma", "mono"], "default": "aurora" },
+    "calmColor": { "type": "color", "label": "Idle wash", "default": "#0a1830" }
+  },
+  "vars": {
+    "phase": { "init": "0", "frame": "phase + dt * settings.flow * (0.2 + 1.5 * energy)" },
+    "warmth": { "init": "0", "frame": "warmth * 0.9 + (low - high) * 0.1" }
+  },
+  "scene": [
+    {
+      "type": "field",
+      "resolution": 64,
+      "cell": {
+        "color": {
+          "model": "hsva",
+          "h": "settings.hueShift + if(settings.palette == 2, 0, 140 * sin(x * settings.scale + phase + 2 * low) * cos(y * settings.scale - phase + 2 * high) + 80 * warmth + if(settings.palette == 1, 40, 0))",
+          "s": "if(settings.palette == 2, 0, 0.55 + 0.45 * sin(x * y * settings.scale + phase * 1.3 + 3 * mid))",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.25 + 0.75 * abs(sin(x * settings.scale + phase + low * 4) * cos(y * settings.scale - phase * 0.7 + high * 4))) + (1 - smoothstep(0.02, 0.12, energy)) * (settings.calmColor_r + settings.calmColor_g + settings.calmColor_b) * 0.2",
+          "a": "1"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "0.82 + 0.12 * energy" }
+}

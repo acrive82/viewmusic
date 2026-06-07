@@ -1,0 +1,61 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/viz-core",
+    "crates/viz-audio",
+    "crates/viz-expr",
+    "crates/viz-contract",
+    "crates/viz-render",
+    "crates/viz-app",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.87"
+authors = ["acrive82"]
+license = "MIT"
+
+[workspace.dependencies]
+# internal crates
+viz-core = { path = "crates/viz-core" }
+viz-audio = { path = "crates/viz-audio" }
+viz-expr = { path = "crates/viz-expr" }
+viz-contract = { path = "crates/viz-contract" }
+viz-render = { path = "crates/viz-render" }
+
+# rendering & UI (versions pinned as a mutually compatible set)
+wgpu = "29.0"
+winit = "0.30.13"
+egui = "0.34"
+egui-wgpu = "0.34"
+egui-winit = "0.34"
+
+# audio capture & DSP
+cidre = "=0.15.2"
+realfft = "3.5.0"
+triple_buffer = "9.0.0"
+rtrb = "0.3.4"
+
+# contract & serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+schemars = "1.2"
+jsonschema = "0.46"
+indexmap = { version = "2", features = ["serde"] }
+
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "0.4"
+
+# platform & logging
+directories = "6"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

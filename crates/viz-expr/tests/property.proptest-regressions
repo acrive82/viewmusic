@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 38ca2179e06a82d6667caf9dd32fe6c3f25d60564aebaedcd99d9b545d8cd3eb # shrinks to expr = Call(BuiltinFn { name: "sin", arity: 1, op: Sin }, [Binary(Pow, Num(-768.6990355844355), Num(0.5))]), slot_vals = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], seed = 0

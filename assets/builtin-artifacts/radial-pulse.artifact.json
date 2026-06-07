@@ -1,0 +1,56 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "radial-pulse",
+    "name": "Radial Pulse",
+    "description": "A ring of spectrum-driven shapes pulsing outward from the center. Each element samples its own band, the whole ring rotates slowly with the music, and the beat punches the radius. Circle idiom keeps the ring round on any aspect.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "spokes": { "type": "number", "label": "Spokes", "min": 8, "max": 128, "step": 1, "default": 64 },
+    "baseRadius": { "type": "number", "label": "Base radius", "min": 0.1, "max": 0.8, "step": 0.01, "default": 0.4 },
+    "hueSweep": { "type": "number", "label": "Hue sweep", "min": 0, "max": 720, "step": 1, "default": 360 },
+    "shapeStyle": { "type": "choice", "label": "Shape", "options": ["dots", "spokes"], "default": "dots" },
+    "tint": { "type": "color", "label": "Center tint", "default": "#ff2266" }
+  },
+  "vars": {
+    "spin": { "init": "0", "frame": "spin + dt * (0.15 + 1.2 * energy)" },
+    "pulse": { "init": "0", "frame": "max(pulse * 0.9, beat)" }
+  },
+  "scene": [
+    {
+      "type": "field",
+      "resolution": 2,
+      "cell": {
+        "color": {
+          "model": "rgba",
+          "r": "settings.tint_r * pulse * 0.18",
+          "g": "settings.tint_g * pulse * 0.18",
+          "b": "settings.tint_b * pulse * 0.18",
+          "a": 1
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": "settings.spokes",
+      "element": {
+        "x": "(settings.baseRadius + 0.45 * band(u) * smoothstep(0.02, 0.15, energy) + 0.12 * pulse) * cos(u * tau + spin) / aspect",
+        "y": "(settings.baseRadius + 0.45 * band(u) * smoothstep(0.02, 0.15, energy) + 0.12 * pulse) * sin(u * tau + spin)",
+        "w": "if(settings.shapeStyle == 1, (0.02 + 0.16 * band(u)) / aspect, (0.025 + 0.09 * band(u)) / aspect)",
+        "h": "if(settings.shapeStyle == 1, 0.02 + 0.5 * band(u), 0.025 + 0.09 * band(u))",
+        "rot": "u * tau + spin",
+        "color": {
+          "model": "hsva",
+          "h": "u * settings.hueSweep + spin * 30",
+          "s": "0.85",
+          "v": "0.3 + 0.7 * band(u) + 0.3 * pulse",
+          "a": "0.9"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "0.8" }
+}

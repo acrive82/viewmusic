@@ -1,0 +1,24 @@
+# Rust
+target/
+debug/
+release/
+*.rs.bk
+*.rlib
+*.prof*
+
+# macOS
+.DS_Store
+
+# IDE / editors
+.idea/
+.vscode/
+*.swp
+*.tmp
+
+# logs & env
+*.log
+.env*
+
+# bundle output
+*.app/
+resume_last_session.sh

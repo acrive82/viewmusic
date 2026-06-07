@@ -1,0 +1,39 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "my-pulse",
+    "name": "My Pulse",
+    "description": "Tutorial step 4 — a smoothing var (pulse) drives the size for a softer, hold-and-decay feel.",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "tint": {
+      "type": "color",
+      "label": "Disc color",
+      "default": "#3aa0ff"
+    }
+  },
+  "vars": {
+    "pulse": { "init": "0", "frame": "max(pulse * 0.9, energy)" }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "count": 1,
+      "element": {
+        "x": "0",
+        "y": "0",
+        "w": "(0.2 + 0.6 * pulse) / aspect",
+        "h": "0.2 + 0.6 * pulse",
+        "color": {
+          "model": "rgba",
+          "r": "settings.tint_r * (0.25 + 0.6 * smoothstep(0.02, 0.2, pulse))",
+          "g": "settings.tint_g * (0.25 + 0.6 * smoothstep(0.02, 0.2, pulse))",
+          "b": "settings.tint_b * (0.25 + 0.6 * smoothstep(0.02, 0.2, pulse))",
+          "a": "1"
+        }
+      }
+    }
+  ]
+}

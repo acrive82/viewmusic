@@ -1,0 +1,150 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "bass-tunnel",
+    "name": "Bass Tunnel",
+    "description": "An infinite tunnel of concentric ring outlines receding toward the center. Each ring is a closed polyline laid on a circle (true outline, not a filled disc) using the aspect idiom so it stays round on any window. A scrolling depth var pushes the rings inward; their spacing and scale pulse smoothly with a low-band-smoothed var so the tunnel breathes with the bass. Hue shifts with depth and feedback adds a soft depth glow. Silence slows the scroll and dims the rings to a calm, near-still tunnel.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "rings": { "type": "number", "label": "Ring count", "min": 4, "max": 14, "step": 1, "default": 9 },
+    "pulse": { "type": "number", "label": "Pulse depth", "min": 0, "max": 0.6, "step": 0.01, "default": 0.28 },
+    "speed": { "type": "number", "label": "Speed", "min": 0.1, "max": 3, "step": 0.05, "default": 1 },
+    "glow": { "type": "number", "label": "Glow", "min": 0, "max": 0.97, "step": 0.01, "default": 0.85 },
+    "tint": { "type": "color", "label": "Depth tint", "default": "#2266ff" }
+  },
+  "vars": {
+    "lowS": { "init": "0", "frame": "lowS * 0.86 + low * 0.14" },
+    "depth": { "init": "0", "frame": "depth + dt * settings.speed * (0.1 + 1.2 * energy)" }
+  },
+  "scene": [
+    {
+      "type": "polyline",
+      "points": 72,
+      "thickness": "1.5 + 5 * lowS",
+      "closed": true,
+      "blend": "add",
+      "point": {
+        "x": "(0.05 + 1.05 * fract((0 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * cos(u * tau * 71 / 72) / aspect",
+        "y": "(0.05 + 1.05 * fract((0 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * sin(u * tau * 71 / 72)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.tint_r * 120 + settings.tint_g * 240 + settings.tint_b * 360 + 200 * fract((0 + depth) / settings.rings) + 40 * lowS",
+          "s": "0.8",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.25 + 0.7 * fract((0 + depth) / settings.rings)) + 0.05",
+          "a": "0.5 + 0.5 * fract((0 + depth) / settings.rings)"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 72,
+      "thickness": "1.5 + 5 * lowS",
+      "closed": true,
+      "blend": "add",
+      "point": {
+        "x": "(0.05 + 1.05 * fract((2 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * cos(u * tau * 71 / 72) / aspect",
+        "y": "(0.05 + 1.05 * fract((2 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * sin(u * tau * 71 / 72)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.tint_r * 120 + settings.tint_g * 240 + settings.tint_b * 360 + 200 * fract((2 + depth) / settings.rings) + 40 * lowS",
+          "s": "0.8",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.25 + 0.7 * fract((2 + depth) / settings.rings)) + 0.05",
+          "a": "0.5 + 0.5 * fract((2 + depth) / settings.rings)"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 72,
+      "thickness": "1.5 + 5 * lowS",
+      "closed": true,
+      "blend": "add",
+      "point": {
+        "x": "(0.05 + 1.05 * fract((4 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * cos(u * tau * 71 / 72) / aspect",
+        "y": "(0.05 + 1.05 * fract((4 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * sin(u * tau * 71 / 72)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.tint_r * 120 + settings.tint_g * 240 + settings.tint_b * 360 + 200 * fract((4 + depth) / settings.rings) + 40 * lowS",
+          "s": "0.8",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.25 + 0.7 * fract((4 + depth) / settings.rings)) + 0.05",
+          "a": "0.5 + 0.5 * fract((4 + depth) / settings.rings)"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 72,
+      "thickness": "1.5 + 5 * lowS",
+      "closed": true,
+      "blend": "add",
+      "point": {
+        "x": "(0.05 + 1.05 * fract((6 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * cos(u * tau * 71 / 72) / aspect",
+        "y": "(0.05 + 1.05 * fract((6 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * sin(u * tau * 71 / 72)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.tint_r * 120 + settings.tint_g * 240 + settings.tint_b * 360 + 200 * fract((6 + depth) / settings.rings) + 40 * lowS",
+          "s": "0.8",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.25 + 0.7 * fract((6 + depth) / settings.rings)) + 0.05",
+          "a": "0.5 + 0.5 * fract((6 + depth) / settings.rings)"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 72,
+      "thickness": "1.5 + 5 * lowS",
+      "closed": true,
+      "blend": "add",
+      "point": {
+        "x": "(0.05 + 1.05 * fract((8 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * cos(u * tau * 71 / 72) / aspect",
+        "y": "(0.05 + 1.05 * fract((8 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * sin(u * tau * 71 / 72)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.tint_r * 120 + settings.tint_g * 240 + settings.tint_b * 360 + 200 * fract((8 + depth) / settings.rings) + 40 * lowS",
+          "s": "0.8",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.25 + 0.7 * fract((8 + depth) / settings.rings)) + 0.05",
+          "a": "0.5 + 0.5 * fract((8 + depth) / settings.rings)"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 72,
+      "thickness": "1.5 + 5 * lowS",
+      "closed": true,
+      "blend": "add",
+      "point": {
+        "x": "(0.05 + 1.05 * fract((10 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * cos(u * tau * 71 / 72) / aspect",
+        "y": "(0.05 + 1.05 * fract((10 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * sin(u * tau * 71 / 72)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.tint_r * 120 + settings.tint_g * 240 + settings.tint_b * 360 + 200 * fract((10 + depth) / settings.rings) + 40 * lowS",
+          "s": "0.8",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.25 + 0.7 * fract((10 + depth) / settings.rings)) + 0.05",
+          "a": "0.5 + 0.5 * fract((10 + depth) / settings.rings)"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 72,
+      "thickness": "1.5 + 5 * lowS",
+      "closed": true,
+      "blend": "add",
+      "visible": "settings.rings > 7",
+      "point": {
+        "x": "(0.05 + 1.05 * fract((12 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * cos(u * tau * 71 / 72) / aspect",
+        "y": "(0.05 + 1.05 * fract((12 + depth) / settings.rings)) * (0.85 + settings.pulse * lowS) * sin(u * tau * 71 / 72)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.tint_r * 120 + settings.tint_g * 240 + settings.tint_b * 360 + 200 * fract((12 + depth) / settings.rings) + 40 * lowS",
+          "s": "0.8",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.25 + 0.7 * fract((12 + depth) / settings.rings)) + 0.05",
+          "a": "0.5 + 0.5 * fract((12 + depth) / settings.rings)"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "settings.glow" }
+}

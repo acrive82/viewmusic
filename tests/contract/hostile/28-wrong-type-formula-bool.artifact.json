@@ -1,0 +1,8 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "wrong-type-formula", "name": "Wrong Type Formula" },
+  "scene": [
+    { "type": "field", "resolution": true,
+      "cell": { "color": { "model": "rgba", "r": 1, "g": 0, "b": 0 } } }
+  ]
+}

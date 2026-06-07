@@ -1,0 +1,41 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "dryrun-validation",
+    "name": "Dry-Run: Loud Square",
+    "description": "A dry-run artifact authored from scratch using only the authoring manual: one square whose size tracks loudness, with one adjustable 'sensitivity' number setting. Brightness is energy-gated via smoothstep so the square rests calm and dim in silence (golden rule 1).",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "sensitivity": {
+      "type": "number",
+      "label": "Sensitivity",
+      "min": 0.2,
+      "max": 2,
+      "step": 0.05,
+      "default": 1
+    }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": 1,
+      "element": {
+        "x": "0",
+        "y": "0",
+        "w": "(0.15 + 0.6 * energy * settings.sensitivity) / aspect",
+        "h": "0.15 + 0.6 * energy * settings.sensitivity",
+        "rot": "0",
+        "color": {
+          "model": "hsva",
+          "h": "190",
+          "s": "0.7",
+          "v": "0.2 + 0.6 * smoothstep(0.02, 0.2, energy)",
+          "a": "1"
+        }
+      }
+    }
+  ]
+}

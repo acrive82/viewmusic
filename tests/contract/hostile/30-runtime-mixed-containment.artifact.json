@@ -1,0 +1,16 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "runtime-mixed", "name": "Runtime Mixed Containment" },
+  "vars": {
+    "spin": { "init": "0 / 0", "frame": "spin / 0 + log(-t)" }
+  },
+  "scene": [
+    { "type": "instanced", "shape": "circle", "count": 1e9,
+      "visible": "1 / 0",
+      "element": {
+        "x": "tan(pi / 2) * u", "y": "atan2(0, 0)",
+        "w": "0.05", "h": "0.05",
+        "color": { "model": "hsva", "h": "log(-1) * 360", "s": "asin(5)", "v": "sqrt(-energy - 1)" }
+      } }
+  ]
+}

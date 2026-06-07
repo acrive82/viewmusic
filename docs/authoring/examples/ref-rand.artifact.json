@@ -1,0 +1,31 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "ref-rand",
+    "name": "Reference: Stable Randomness",
+    "description": "rand(k) is a stable hash: same k gives the same value every frame. Folding the element index into k gives each star a fixed position; rand(i + 100) gives a second independent draw. Nothing here drifts frame to frame, so the field is steady.",
+    "author": "ViewMusic authoring manual"
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": 120,
+      "element": {
+        "x": "(rand(i) * 2 - 1)",
+        "y": "(rand(i + 100) * 2 - 1)",
+        "w": "(0.004 + 0.012 * rand(i + 200)) / aspect",
+        "h": "0.004 + 0.012 * rand(i + 200)",
+        "rot": "0",
+        "color": {
+          "model": "hsva",
+          "h": "40 * rand(i + 300)",
+          "s": "0.2",
+          "v": "(0.1 + 0.5 * rand(i + 400)) * (0.2 + 0.8 * smoothstep(0.02, 0.2, energy))",
+          "a": "0.9"
+        }
+      }
+    }
+  ]
+}

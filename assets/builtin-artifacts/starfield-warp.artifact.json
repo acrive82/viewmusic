@@ -1,0 +1,42 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "starfield-warp",
+    "name": "Starfield Warp",
+    "description": "Flying through space: stars stream outward from the center along closed-form radial trajectories. Each star takes a stable angle and launch radius from rand(i); its distance grows with an accumulated warp var whose speed is base + energy, with a smoothed beat giving a gentle warp kick. Stars brighten subtly with their speed, drawn additively with a slight feedback trail for streaks. Silence settles the drift to a slow crawl.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "stars": { "type": "number", "label": "Star count", "min": 32, "max": 1200, "step": 1, "default": 480 },
+    "warpSpeed": { "type": "number", "label": "Warp speed", "min": 0.1, "max": 3, "step": 0.05, "default": 1 },
+    "trail": { "type": "number", "label": "Trail length", "min": 0, "max": 0.97, "step": 0.01, "default": 0.82 },
+    "tint": { "type": "color", "label": "Star tint", "default": "#aaccff" }
+  },
+  "vars": {
+    "kick": { "init": "0", "frame": "max(kick * 0.9, beat * 0.5)" },
+    "warp": { "init": "0", "frame": "warp + dt * settings.warpSpeed * (0.12 + 1.4 * energy + 0.9 * kick)" }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": "settings.stars",
+      "element": {
+        "x": "fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700))) * cos(rand(i + 300) * tau) / aspect",
+        "y": "fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700))) * sin(rand(i + 300) * tau)",
+        "w": "(0.004 + 0.022 * fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700))) + 0.01 * kick) / aspect",
+        "h": "0.004 + 0.022 * fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700))) + 0.01 * kick",
+        "rot": "0",
+        "color": {
+          "model": "rgba",
+          "r": "settings.tint_r * ((0.12 + 0.5 * fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700)))) * (0.3 + 0.7 * smoothstep(0.02, 0.12, energy)) + 0.35 * energy * fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700))))",
+          "g": "settings.tint_g * ((0.12 + 0.5 * fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700)))) * (0.3 + 0.7 * smoothstep(0.02, 0.12, energy)) + 0.35 * energy * fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700))))",
+          "b": "settings.tint_b * ((0.12 + 0.5 * fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700)))) * (0.3 + 0.7 * smoothstep(0.02, 0.12, energy)) + 0.35 * energy * fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700))))",
+          "a": "(0.2 + 0.5 * fract(rand(i) * 0.5 + 0.12 + warp * (0.25 + 0.75 * rand(i + 700)))) * (0.4 + 0.6 * smoothstep(0.02, 0.12, energy))"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "settings.trail" }
+}

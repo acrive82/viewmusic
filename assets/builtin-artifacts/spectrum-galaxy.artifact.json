@@ -1,0 +1,93 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "spectrum-galaxy",
+    "name": "Spectrum Galaxy",
+    "description": "A spiral galaxy of stars. Hundreds of instanced circles sit along two to four logarithmic spiral arms — each star's arm comes from i % arms, its radius from its position plus a spectrum perturbation, so the arms shimmer outward with the music. The whole disc rotates slowly, accelerating only a little with energy. A small soft field at the core glows with SMOOTHED energy (never the beat), and additive blend plus feedback give the stars a luminous dust. Silence stills the spin and dims the core to embers.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "arms": { "type": "choice", "label": "Arms", "options": ["2", "3", "4"], "default": "3" },
+    "spin": { "type": "number", "label": "Rotation speed", "min": 0, "max": 1.5, "step": 0.05, "default": 0.45 },
+    "starColor": { "type": "color", "label": "Star color", "default": "#66ccff" },
+    "core": { "type": "number", "label": "Core intensity", "min": 0, "max": 1.5, "step": 0.05, "default": 0.8 }
+  },
+  "vars": {
+    "energy_s": { "init": "0", "frame": "energy_s * 0.92 + energy * 0.08" },
+    "rot": { "init": "0", "frame": "rot + dt * settings.spin * (0.2 + 0.5 * energy)" }
+  },
+  "feedback": { "decay": "0.86 + 0.08 * energy_s" },
+  "scene": [
+    {
+      "type": "field",
+      "resolution": 24,
+      "blend": "add",
+      "cell": {
+        "color": {
+          "model": "hsva",
+          "h": "30 + 20 * sin(rot)",
+          "s": "0.6",
+          "v": "settings.core * (0.05 + 0.6 * energy_s) * exp(-(x * x * aspect * aspect + y * y) * 7.0)",
+          "a": "1"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": 420,
+      "element": {
+        "x": "((0.06 + 0.82 * (u + 0.18 * band(u) * smoothstep(0.02, 0.12, energy))) * cos(tau * (i % (2 + settings.arms)) / (2 + settings.arms) + 4.0 * (u + 0.18 * band(u) * smoothstep(0.02, 0.12, energy)) + rot + 0.4 * rand(i))) / aspect",
+        "y": "(0.06 + 0.82 * (u + 0.18 * band(u) * smoothstep(0.02, 0.12, energy))) * sin(tau * (i % (2 + settings.arms)) / (2 + settings.arms) + 4.0 * (u + 0.18 * band(u) * smoothstep(0.02, 0.12, energy)) + rot + 0.4 * rand(i))",
+        "w": "((0.006 + 0.018 * rand(i + 50)) * (0.6 + 0.7 * band(u))) / aspect",
+        "h": "(0.006 + 0.018 * rand(i + 50)) * (0.6 + 0.7 * band(u))",
+        "color": {
+          "model": "rgba",
+          "r": "mix(settings.starColor_r, 1, 0.5 * rand(i + 70)) * ((0.2 + 0.8 * band(u)) * (0.4 + 0.6 * smoothstep(0.02, 0.12, energy)) + 0.06)",
+          "g": "mix(settings.starColor_g, 1, 0.5 * rand(i + 80)) * ((0.2 + 0.8 * band(u)) * (0.4 + 0.6 * smoothstep(0.02, 0.12, energy)) + 0.06)",
+          "b": "mix(settings.starColor_b, 1, 0.5 * rand(i + 90)) * ((0.2 + 0.8 * band(u)) * (0.4 + 0.6 * smoothstep(0.02, 0.12, energy)) + 0.06)",
+          "a": "0.85"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": 80,
+      "element": {
+        "x": "((0.04 + 0.9 * rand(i + 300)) * cos(tau * rand(i + 310) + rot * 0.5)) / aspect",
+        "y": "(0.04 + 0.9 * rand(i + 300)) * sin(tau * rand(i + 310) + rot * 0.5)",
+        "w": "(0.004 + 0.01 * rand(i + 320)) / aspect",
+        "h": "0.004 + 0.01 * rand(i + 320)",
+        "color": {
+          "model": "rgba",
+          "r": "settings.starColor_r * (0.3 + 0.7 * smoothstep(0.02, 0.12, energy))",
+          "g": "settings.starColor_g * (0.3 + 0.7 * smoothstep(0.02, 0.12, energy))",
+          "b": "settings.starColor_b * (0.3 + 0.7 * smoothstep(0.02, 0.12, energy))",
+          "a": "0.5 + 0.4 * rand(i + 330)"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": 1,
+      "element": {
+        "x": "0",
+        "y": "0",
+        "w": "(0.05 + 0.05 * energy_s) * settings.core / aspect",
+        "h": "(0.05 + 0.05 * energy_s) * settings.core",
+        "color": {
+          "model": "hsva",
+          "h": "40",
+          "s": "0.3",
+          "v": "settings.core * (0.2 + 0.8 * energy_s)",
+          "a": "0.7"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "twin", "name": "Twin Second" },
+  "scene": [
+    { "type": "field", "resolution": 8,
+      "cell": { "color": { "model": "hsva", "h": 200, "s": 1, "v": 1 } } }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "unknown-ident", "name": "Unknown Identifier" },
+  "scene": [
+    { "type": "field", "resolution": 4,
+      "cell": { "color": { "model": "hsva",
+        "h": "totally_undeclared + 1", "s": 1, "v": 1 } } }
+  ]
+}

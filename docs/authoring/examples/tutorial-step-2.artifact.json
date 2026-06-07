@@ -1,0 +1,29 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "my-pulse",
+    "name": "My Pulse",
+    "description": "Tutorial step 2 — the circle's size now tracks loudness (energy).",
+    "author": "ViewMusic authoring manual"
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "count": 1,
+      "element": {
+        "x": "0",
+        "y": "0",
+        "w": "(0.2 + 0.6 * energy) / aspect",
+        "h": "0.2 + 0.6 * energy",
+        "color": {
+          "model": "hsva",
+          "h": "210",
+          "s": "0.7",
+          "v": "0.25 + 0.6 * smoothstep(0.02, 0.2, energy)",
+          "a": "1"
+        }
+      }
+    }
+  ]
+}

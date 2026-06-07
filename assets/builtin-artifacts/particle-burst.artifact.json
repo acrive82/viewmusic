@@ -1,0 +1,41 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "particle-burst",
+    "name": "Particle Burst",
+    "description": "Sparks explode from the center on every beat and coast outward as closed-form trajectories of (index, age). Directions and speeds re-roll each burst; particles fade as they fly. Additive blend for a fireworks glow.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "particles": { "type": "number", "label": "Particles", "min": 8, "max": 512, "step": 1, "default": 160 },
+    "spread": { "type": "number", "label": "Spread", "min": 0.3, "max": 2.5, "step": 0.05, "default": 1.4 },
+    "life": { "type": "number", "label": "Life (s)", "min": 0.4, "max": 4, "step": 0.1, "default": 1.6 },
+    "gravity": { "type": "toggle", "label": "Gravity", "default": true },
+    "sparkColor": { "type": "color", "label": "Spark color", "default": "#ffcc44" }
+  },
+  "vars": {
+    "lastBeatT": { "init": "0", "frame": "if(beat >= 1, t, lastBeatT)" }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": "settings.particles",
+      "element": {
+        "x": "rand(i + beat_count * 1000) * 0.04 - 0.02 + cos(rand(i + beat_count * 1000) * tau) * settings.spread * (0.4 + 0.6 * rand(i + 100 + beat_count * 1000)) * clamp((t - lastBeatT) / settings.life, 0, 1)",
+        "y": "sin(rand(i + beat_count * 1000) * tau) * settings.spread * (0.4 + 0.6 * rand(i + 100 + beat_count * 1000)) * clamp((t - lastBeatT) / settings.life, 0, 1) - settings.gravity * 0.6 * pow(clamp((t - lastBeatT) / settings.life, 0, 1), 2)",
+        "w": "(0.01 + 0.02 * rand(i + 200 + beat_count * 1000)) / aspect",
+        "h": "0.01 + 0.02 * rand(i + 200 + beat_count * 1000)",
+        "color": {
+          "model": "rgba",
+          "r": "settings.sparkColor_r * (1 - clamp((t - lastBeatT) / settings.life, 0, 1))",
+          "g": "settings.sparkColor_g * (1 - clamp((t - lastBeatT) / settings.life, 0, 1))",
+          "b": "settings.sparkColor_b * (1 - clamp((t - lastBeatT) / settings.life, 0, 1))",
+          "a": "(1 - clamp((t - lastBeatT) / settings.life, 0, 1)) * step(0, settings.life - (t - lastBeatT))"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "0.9" }
+}

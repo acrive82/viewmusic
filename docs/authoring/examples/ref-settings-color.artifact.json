@@ -1,0 +1,38 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "ref-settings-color",
+    "name": "Reference: Color Setting",
+    "description": "A color setting renders a color picker and expands into settings.name_r/_g/_b/_a channels in 0..1. Here settings.tint colors a pulsing disc, scaled by energy for calm silence.",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "tint": {
+      "type": "color",
+      "label": "Tint",
+      "default": "#33ccff"
+    }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": 1,
+      "element": {
+        "x": "0",
+        "y": "0",
+        "w": "(0.3 + 0.4 * energy) / aspect",
+        "h": "0.3 + 0.4 * energy",
+        "rot": "0",
+        "color": {
+          "model": "rgba",
+          "r": "settings.tint_r * (0.1 + 0.9 * smoothstep(0.02, 0.2, energy))",
+          "g": "settings.tint_g * (0.1 + 0.9 * smoothstep(0.02, 0.2, energy))",
+          "b": "settings.tint_b * (0.1 + 0.9 * smoothstep(0.02, 0.2, energy))",
+          "a": "settings.tint_a"
+        }
+      }
+    }
+  ]
+}

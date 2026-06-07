@@ -1,0 +1,112 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "aurora-waves",
+    "name": "Aurora Waves",
+    "description": "Northern lights: three or four slow ribbons of light drifting across the sky. Each ribbon is a polyline whose vertical curve is the sum of several sines with stable per-ribbon phases, and whose brightness follows its own frequency band (low ribbon at the bottom, high near the top). Soft additive glow and heavy feedback fuse the strokes into a smooth aurora veil; silence lets the curtains settle to a dim, barely-moving glow.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "ribbons": { "type": "choice", "label": "Ribbons", "options": ["3", "4"], "default": "4" },
+    "glow": { "type": "number", "label": "Glow", "min": 0.5, "max": 8, "step": 0.1, "default": 4 },
+    "baseHue": { "type": "number", "label": "Base hue", "min": 0, "max": 360, "step": 1, "default": 140 },
+    "drift": { "type": "number", "label": "Drift speed", "min": 0, "max": 1, "step": 0.01, "default": 0.35 },
+    "veil": { "type": "color", "label": "Sky veil", "default": "#06122a" }
+  },
+  "vars": {
+    "low_s": { "init": "0", "frame": "low_s * 0.9 + low * 0.1" },
+    "mid_s": { "init": "0", "frame": "mid_s * 0.9 + mid * 0.1" },
+    "high_s": { "init": "0", "frame": "high_s * 0.9 + high * 0.1" },
+    "flow": { "init": "0", "frame": "flow + dt * settings.drift * (0.25 + 0.6 * energy)" }
+  },
+  "feedback": { "decay": "0.9 + 0.08 * energy" },
+  "scene": [
+    {
+      "type": "field",
+      "resolution": 16,
+      "blend": "alpha",
+      "cell": {
+        "color": {
+          "model": "rgba",
+          "r": "settings.veil_r * (0.5 + 0.5 * (0.5 + 0.5 * y))",
+          "g": "settings.veil_g * (0.5 + 0.5 * (0.5 + 0.5 * y))",
+          "b": "settings.veil_b * (0.6 + 0.4 * (0.5 + 0.5 * y))",
+          "a": "0.55"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 128,
+      "thickness": "settings.glow * (0.6 + 0.4 * smoothstep(0.02, 0.12, energy))",
+      "closed": false,
+      "blend": "add",
+      "point": {
+        "x": "-1 + 2 * u",
+        "y": "-0.55 + 0.16 * sin(u * 4.0 + flow + rand(1) * tau) + 0.10 * sin(u * 7.0 - flow * 0.7 + rand(2) * tau) + 0.07 * sin(u * 11.0 + flow * 1.3 + rand(3) * tau) + (0.06 + 0.30 * low_s) * sin(u * 2.0 + flow * 0.5)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.baseHue + 30 * sin(u * 3.0 + flow)",
+          "s": "0.75",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.18 + 0.55 * low_s) * (0.55 + 0.45 * sin(u * 5.0 + flow * 1.1)) + 0.04",
+          "a": "0.6"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 128,
+      "thickness": "settings.glow * (0.6 + 0.4 * smoothstep(0.02, 0.12, energy))",
+      "closed": false,
+      "blend": "add",
+      "point": {
+        "x": "-1 + 2 * u",
+        "y": "-0.12 + 0.15 * sin(u * 4.5 - flow * 0.9 + rand(11) * tau) + 0.10 * sin(u * 8.0 + flow * 1.1 + rand(12) * tau) + 0.06 * sin(u * 13.0 - flow + rand(13) * tau) + (0.05 + 0.28 * mid_s) * sin(u * 2.5 - flow * 0.6)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.baseHue + 40 + 35 * sin(u * 3.5 - flow * 0.8)",
+          "s": "0.7",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.16 + 0.55 * mid_s) * (0.55 + 0.45 * sin(u * 6.0 - flow)) + 0.035",
+          "a": "0.6"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 128,
+      "thickness": "settings.glow * (0.6 + 0.4 * smoothstep(0.02, 0.12, energy))",
+      "closed": false,
+      "blend": "add",
+      "point": {
+        "x": "-1 + 2 * u",
+        "y": "0.3 + 0.14 * sin(u * 5.0 + flow * 1.2 + rand(21) * tau) + 0.09 * sin(u * 9.0 - flow * 0.8 + rand(22) * tau) + 0.06 * sin(u * 15.0 + flow * 0.9 + rand(23) * tau) + (0.04 + 0.24 * high_s) * sin(u * 3.0 + flow * 0.7)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.baseHue + 80 + 40 * sin(u * 4.0 + flow * 1.3)",
+          "s": "0.65",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.15 + 0.55 * high_s) * (0.55 + 0.45 * sin(u * 7.0 + flow * 1.2)) + 0.03",
+          "a": "0.55"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 128,
+      "thickness": "settings.glow * (0.55 + 0.45 * smoothstep(0.02, 0.12, energy))",
+      "closed": false,
+      "blend": "add",
+      "visible": "settings.ribbons == 1",
+      "point": {
+        "x": "-1 + 2 * u",
+        "y": "0.62 + 0.12 * sin(u * 5.5 - flow * 1.1 + rand(31) * tau) + 0.08 * sin(u * 10.0 + flow * 1.0 + rand(32) * tau) + 0.05 * sin(u * 17.0 - flow * 1.2 + rand(33) * tau) + (0.03 + 0.20 * high_s) * sin(u * 3.5 - flow * 0.5)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.baseHue + 120 + 40 * sin(u * 4.5 - flow)",
+          "s": "0.6",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.13 + 0.5 * high_s) * (0.55 + 0.45 * sin(u * 8.0 - flow * 0.9)) + 0.025",
+          "a": "0.5"
+        }
+      }
+    }
+  ]
+}

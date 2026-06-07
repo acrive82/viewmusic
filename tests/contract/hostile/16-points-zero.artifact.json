@@ -1,0 +1,11 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "points-zero", "name": "Points Zero" },
+  "scene": [
+    { "type": "polyline", "points": 0, "thickness": 2,
+      "point": {
+        "x": "-1 + 2 * u", "y": "0",
+        "color": { "model": "rgba", "r": 1, "g": 1, "b": 1 }
+      } }
+  ]
+}

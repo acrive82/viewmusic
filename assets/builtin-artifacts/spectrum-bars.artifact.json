@@ -1,0 +1,70 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "spectrum-bars",
+    "name": "Spectrum Bars",
+    "description": "Classic Winamp-style spectrum analyzer: log-spaced bars with peak glow and beat flash.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "bars": { "type": "number", "label": "Bars", "min": 8, "max": 96, "step": 1, "default": 48 },
+    "hueShift": { "type": "number", "label": "Hue shift", "min": 0, "max": 360, "step": 1, "default": 0 },
+    "glow": { "type": "toggle", "label": "Glow", "default": true },
+    "style": { "type": "choice", "label": "Style", "options": ["thin", "wide"], "default": "wide" },
+    "baseColor": { "type": "color", "label": "Beat flash", "default": "#ffffff" }
+  },
+  "vars": {
+    "flash": { "init": "0", "frame": "max(flash * 0.88, beat)" }
+  },
+  "scene": [
+    {
+      "type": "field",
+      "resolution": 2,
+      "cell": {
+        "color": {
+          "model": "rgba",
+          "r": "settings.baseColor_r * flash * 0.25",
+          "g": "settings.baseColor_g * flash * 0.25",
+          "b": "settings.baseColor_b * flash * 0.25",
+          "a": 1
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": "settings.bars",
+      "element": {
+        "x": "-1 + (2 * i + 1) / n",
+        "y": "-1 + band(u)",
+        "w": "if(settings.style == 1, 1.6 / n, 0.8 / n)",
+        "h": "2 * band(u)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.hueShift + u * 300",
+          "s": "0.9",
+          "v": "if(settings.glow, 0.35 + 0.65 * band(u), 0.2 + 0.8 * band(u))",
+          "a": "0.9"
+        }
+      }
+    },
+    {
+      "type": "polyline",
+      "points": 256,
+      "thickness": "1.5 + 4 * energy",
+      "point": {
+        "x": "-1 + 2 * u",
+        "y": "0.55 + wave(u) * 0.35",
+        "color": {
+          "model": "hsva",
+          "h": "settings.hueShift + 180",
+          "s": "0.6",
+          "v": "0.5 + 0.5 * energy",
+          "a": "0.8"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "0.85" }
+}

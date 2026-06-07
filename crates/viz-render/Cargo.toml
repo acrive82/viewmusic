@@ -1,0 +1,20 @@
+[package]
+name = "viz-render"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+viz-core = { workspace = true }
+wgpu = { workspace = true }
+bytemuck = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+# Headless GPU smoke test blocks on adapter/device acquisition (off the hot path).
+pollster = { workspace = true }
+
+[lints]
+workspace = true

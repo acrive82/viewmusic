@@ -1,0 +1,9 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "asin-out-of-range", "name": "Asin Out Of Range" },
+  "scene": [
+    { "type": "field", "resolution": 4,
+      "cell": { "color": { "model": "rgba",
+        "r": "asin(2)", "g": "acos(-5)", "b": "sqrt(-1) + (-1)^0.5" } } }
+  ]
+}

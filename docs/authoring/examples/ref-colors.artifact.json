@@ -1,0 +1,51 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "ref-colors",
+    "name": "Reference: Color Models",
+    "description": "hsva vs rgba side by side. The left half is an hsva sweep (hue rotates with x, easy rainbows); the right half is an rgba ramp (channels set directly). Both gate value/brightness by energy for calm silence.",
+    "author": "ViewMusic authoring manual"
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "alpha",
+      "count": 1,
+      "element": {
+        "x": "-0.5",
+        "y": "0",
+        "w": "1",
+        "h": "1.6",
+        "rot": "0",
+        "color": {
+          "model": "hsva",
+          "h": "u * 360 + t * 20",
+          "s": "0.85",
+          "v": "0.1 + 0.7 * smoothstep(0.02, 0.2, energy)",
+          "a": "1"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "alpha",
+      "count": 1,
+      "element": {
+        "x": "0.5",
+        "y": "0",
+        "w": "1",
+        "h": "1.6",
+        "rot": "0",
+        "color": {
+          "model": "rgba",
+          "r": "0.1 + 0.7 * smoothstep(0.02, 0.2, energy)",
+          "g": "0.3 * smoothstep(0.02, 0.2, energy)",
+          "b": "0.2 + 0.6 * low",
+          "a": "1"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "ref-feedback",
+    "name": "Reference: Feedback Trails",
+    "description": "Scene-level feedback multiplies the previous frame by decay before drawing, leaving trails. A single dot orbits the center; the trail length grows with the decay value. Motion is gated by energy so silence parks the dot and the trail fades.",
+    "author": "ViewMusic authoring manual"
+  },
+  "vars": {
+    "spin": { "init": "0", "frame": "spin + dt * (0.2 + 1.5 * energy)" }
+  },
+  "feedback": { "decay": "0.92" },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": 1,
+      "element": {
+        "x": "0.6 * cos(spin) / aspect",
+        "y": "0.6 * sin(spin)",
+        "w": "0.08 / aspect",
+        "h": "0.08",
+        "rot": "0",
+        "color": {
+          "model": "hsva",
+          "h": "180 + 40 * sin(spin)",
+          "s": "0.8",
+          "v": "0.15 + 0.85 * smoothstep(0.02, 0.2, energy)",
+          "a": "0.9"
+        }
+      }
+    }
+  ]
+}

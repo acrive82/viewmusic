@@ -1,0 +1,8 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "resolution-1e6", "name": "Resolution One Million" },
+  "scene": [
+    { "type": "field", "resolution": 1000000,
+      "cell": { "color": { "model": "rgba", "r": 1, "g": 0, "b": 0 } } }
+  ]
+}

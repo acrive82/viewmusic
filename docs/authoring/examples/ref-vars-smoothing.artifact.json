@@ -1,0 +1,35 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "ref-vars-smoothing",
+    "name": "Reference: Vars & Read Semantics",
+    "description": "Two vars showing declaration-order reads. low_s is a one-pole smoother of low (reads itself = previous frame). bar reads low_s, declared earlier, so it sees this frame's smoothed value. Beat reaches geometry only through the smoothed var.",
+    "author": "ViewMusic authoring manual"
+  },
+  "vars": {
+    "low_s": { "init": "0", "frame": "low_s * 0.85 + low * 0.15" },
+    "bar": { "init": "0", "frame": "low_s" }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "alpha",
+      "count": 1,
+      "element": {
+        "x": "0",
+        "y": "-1 + bar",
+        "w": "0.4",
+        "h": "2 * bar",
+        "rot": "0",
+        "color": {
+          "model": "hsva",
+          "h": "200",
+          "s": "0.7",
+          "v": "0.1 + 0.7 * smoothstep(0.02, 0.2, energy)",
+          "a": "1"
+        }
+      }
+    }
+  ]
+}

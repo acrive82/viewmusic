@@ -1,0 +1,33 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "ref-settings-choice",
+    "name": "Reference: Choice Setting",
+    "description": "A choice setting renders a dropdown and reads as the 0-based index of the picked option. Here settings.palette == 0/1/2 selects a hue base, tested with comparisons.",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "palette": {
+      "type": "choice",
+      "label": "Palette",
+      "options": ["warm", "cool", "mono"],
+      "default": "cool"
+    }
+  },
+  "scene": [
+    {
+      "type": "field",
+      "resolution": 48,
+      "blend": "alpha",
+      "cell": {
+        "color": {
+          "model": "hsva",
+          "h": "20 * (settings.palette == 0) + 200 * (settings.palette == 1) + 0 * (settings.palette == 2) + 30 * x",
+          "s": "0.85 * (settings.palette != 2)",
+          "v": "0.06 + 0.5 * smoothstep(0.02, 0.25, energy) * (0.5 + 0.5 * y)",
+          "a": "1"
+        }
+      }
+    }
+  ]
+}

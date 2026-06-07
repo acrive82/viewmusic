@@ -1,0 +1,41 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "recipe-true-circles",
+    "name": "Recipe: True Circles",
+    "description": "A ring of dots that stays perfectly round on any window shape. Every x-distance is divided by aspect so the circle never stretches into an ellipse, and each dot is kept visually square the same way (w = d/aspect, h = d). Brightness is gated by energy so the ring fades to a calm dim outline in silence.",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "dots": { "type": "number", "label": "Dots", "min": 12, "max": 256, "step": 1, "default": 64 },
+    "radius": { "type": "number", "label": "Radius", "min": 0.1, "max": 0.9, "step": 0.01, "default": 0.55 },
+    "dotSize": { "type": "number", "label": "Dot size", "min": 0.01, "max": 0.08, "step": 0.005, "default": 0.03 },
+    "tint": { "type": "color", "label": "Tint", "default": "#33ddff" }
+  },
+  "vars": {
+    "spin": { "init": "0", "frame": "spin + dt * (0.1 + 0.6 * energy)" }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": "settings.dots",
+      "element": {
+        "x": "settings.radius * cos(u * tau + spin) / aspect",
+        "y": "settings.radius * sin(u * tau + spin)",
+        "w": "(settings.dotSize * (0.6 + 0.6 * band(u))) / aspect",
+        "h": "settings.dotSize * (0.6 + 0.6 * band(u))",
+        "rot": "0",
+        "color": {
+          "model": "rgba",
+          "r": "settings.tint_r * (0.08 + 0.92 * smoothstep(0.02, 0.12, energy) * (0.3 + 0.7 * band(u)))",
+          "g": "settings.tint_g * (0.08 + 0.92 * smoothstep(0.02, 0.12, energy) * (0.3 + 0.7 * band(u)))",
+          "b": "settings.tint_b * (0.08 + 0.92 * smoothstep(0.02, 0.12, energy) * (0.3 + 0.7 * band(u)))",
+          "a": "0.85"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "0.7" }
+}

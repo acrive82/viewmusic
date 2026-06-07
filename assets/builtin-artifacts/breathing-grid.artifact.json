@@ -1,0 +1,57 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "breathing-grid",
+    "name": "Breathing Grid",
+    "description": "A zen grid. A soft full-canvas field of muted color cells breathes with a slow, spatially-varying wave — sin(x*k + y*k2 + t*slow) — whose depth is scaled by SMOOTHED energy, so the whole surface inhales and exhales gently. Over it, a lattice of small dots at the grid intersections pulses softly with the mid band. Alpha blend, no additive, no harsh flashes: the calmest visual of the set. In silence the grid settles to a still, dim wash that barely drifts.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "density": { "type": "number", "label": "Grid density", "min": 4, "max": 16, "step": 1, "default": 8 },
+    "breath": { "type": "number", "label": "Breath speed", "min": 0.05, "max": 1, "step": 0.05, "default": 0.3 },
+    "hue": { "type": "number", "label": "Palette hue", "min": 0, "max": 360, "step": 1, "default": 200 },
+    "dotSize": { "type": "number", "label": "Dot size", "min": 0.005, "max": 0.04, "step": 0.001, "default": 0.018 },
+    "tint": { "type": "color", "label": "Idle tint", "default": "#0e1f2e" }
+  },
+  "vars": {
+    "energy_s": { "init": "0", "frame": "energy_s * 0.93 + energy * 0.07" },
+    "mid_s": { "init": "0", "frame": "mid_s * 0.9 + mid * 0.1" },
+    "phase": { "init": "0", "frame": "phase + dt * settings.breath" }
+  },
+  "feedback": { "decay": "0" },
+  "scene": [
+    {
+      "type": "field",
+      "resolution": 28,
+      "blend": "alpha",
+      "cell": {
+        "color": {
+          "model": "hsva",
+          "h": "settings.hue + 24 * sin(x * 1.5 + y * 1.5 + phase * 0.5)",
+          "s": "0.38 + 0.12 * sin(x * settings.density - y * settings.density + phase)",
+          "v": "(settings.tint_r + settings.tint_g + settings.tint_b) * 0.22 + (0.08 + 0.45 * energy_s) * (0.5 + 0.5 * sin(x * settings.density + y * settings.density * 0.7 + phase)) * (0.6 + 0.4 * sin(x * settings.density * 0.6 - y * settings.density + phase * 1.3))",
+          "a": "1"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "alpha",
+      "count": "floor(settings.density) * floor(settings.density)",
+      "element": {
+        "x": "-1 + 2 * ((i % floor(settings.density)) + 0.5) / floor(settings.density)",
+        "y": "-1 + 2 * (floor(i / floor(settings.density)) + 0.5) / floor(settings.density)",
+        "w": "(settings.dotSize * (0.7 + 0.6 * (0.5 + 0.5 * sin((i % floor(settings.density)) * 1.7 + floor(i / floor(settings.density)) * 2.3 + phase))) * (0.6 + 0.8 * mid_s)) / aspect",
+        "h": "settings.dotSize * (0.7 + 0.6 * (0.5 + 0.5 * sin((i % floor(settings.density)) * 1.7 + floor(i / floor(settings.density)) * 2.3 + phase))) * (0.6 + 0.8 * mid_s)",
+        "color": {
+          "model": "hsva",
+          "h": "settings.hue + 40",
+          "s": "0.3",
+          "v": "0.3 + 0.5 * smoothstep(0.02, 0.12, energy) * (0.4 + 0.6 * mid_s)",
+          "a": "0.55 + 0.35 * mid_s"
+        }
+      }
+    }
+  ]
+}

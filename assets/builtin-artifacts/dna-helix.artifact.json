@@ -1,0 +1,82 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "dna-helix",
+    "name": "DNA Helix",
+    "description": "A rotating double helix. Two instanced-circle strands run vertically, their x offset by a sine whose phase differs by pi so the strands cross; z-depth is faked by modulating each bead's size and alpha with the cosine of its phase. Rotation accumulates with dt * (base + mid), so the helix turns faster with midrange energy. Spectrum bands swell each bead's local radius. A third instanced layer draws rungs connecting the strands every few beads. Silence slows the spin and dims the beads to a calm idle.",
+    "author": "ViewMusic built-in"
+  },
+  "settings": {
+    "rotSpeed": { "type": "number", "label": "Rotation speed", "min": 0, "max": 3, "step": 0.05, "default": 1 },
+    "turns": { "type": "number", "label": "Helix turns", "min": 1, "max": 8, "step": 0.5, "default": 3.5 },
+    "strandA": { "type": "color", "label": "Strand A", "default": "#33ddff" },
+    "strandB": { "type": "color", "label": "Strand B", "default": "#ff4499" }
+  },
+  "vars": {
+    "phase": { "init": "0", "frame": "phase + dt * settings.rotSpeed * (0.15 + 1.6 * mid)" },
+    "pulse": { "init": "0", "frame": "pulse * 0.88 + energy * 0.12" }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": 96,
+      "element": {
+        "x": "0.5 * sin(u * tau * settings.turns + phase) / aspect",
+        "y": "-0.9 + 1.8 * u",
+        "w": "(0.02 + 0.05 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase)) + 0.06 * band(u) * smoothstep(0.02, 0.12, energy)) / aspect",
+        "h": "0.02 + 0.05 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase)) + 0.06 * band(u) * smoothstep(0.02, 0.12, energy)",
+        "rot": "0",
+        "color": {
+          "model": "rgba",
+          "r": "settings.strandA_r * (0.3 + 0.7 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase))) * (0.2 + 0.8 * smoothstep(0.02, 0.12, energy))",
+          "g": "settings.strandA_g * (0.3 + 0.7 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase))) * (0.2 + 0.8 * smoothstep(0.02, 0.12, energy))",
+          "b": "settings.strandA_b * (0.3 + 0.7 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase))) * (0.2 + 0.8 * smoothstep(0.02, 0.12, energy))",
+          "a": "0.35 + 0.6 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase))"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "circle",
+      "blend": "add",
+      "count": 96,
+      "element": {
+        "x": "0.5 * sin(u * tau * settings.turns + phase + pi) / aspect",
+        "y": "-0.9 + 1.8 * u",
+        "w": "(0.02 + 0.05 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase + pi)) + 0.06 * band(u) * smoothstep(0.02, 0.12, energy)) / aspect",
+        "h": "0.02 + 0.05 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase + pi)) + 0.06 * band(u) * smoothstep(0.02, 0.12, energy)",
+        "rot": "0",
+        "color": {
+          "model": "rgba",
+          "r": "settings.strandB_r * (0.3 + 0.7 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase + pi))) * (0.2 + 0.8 * smoothstep(0.02, 0.12, energy))",
+          "g": "settings.strandB_g * (0.3 + 0.7 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase + pi))) * (0.2 + 0.8 * smoothstep(0.02, 0.12, energy))",
+          "b": "settings.strandB_b * (0.3 + 0.7 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase + pi))) * (0.2 + 0.8 * smoothstep(0.02, 0.12, energy))",
+          "a": "0.35 + 0.6 * (0.5 + 0.5 * cos(u * tau * settings.turns + phase + pi))"
+        }
+      }
+    },
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": 16,
+      "element": {
+        "x": "0",
+        "y": "-0.9 + 1.8 * (i / 15)",
+        "w": "abs(sin((i / 15) * tau * settings.turns + phase)) * 1.0 / aspect",
+        "h": "0.012 + 0.02 * pulse",
+        "rot": "0",
+        "color": {
+          "model": "hsva",
+          "h": "200 + 160 * (i / 15) + 60 * sin(phase)",
+          "s": "0.5",
+          "v": "smoothstep(0.02, 0.12, energy) * (0.25 + 0.6 * band(i / 15)) * (0.4 + 0.6 * abs(cos((i / 15) * tau * settings.turns + phase)))",
+          "a": "0.6"
+        }
+      }
+    }
+  ],
+  "feedback": { "decay": "0.7 + 0.15 * energy" }
+}

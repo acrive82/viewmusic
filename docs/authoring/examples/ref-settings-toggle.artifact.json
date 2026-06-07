@@ -1,0 +1,38 @@
+{
+  "contract": "1.0",
+  "meta": {
+    "id": "ref-settings-toggle",
+    "name": "Reference: Toggle Setting",
+    "description": "A toggle setting renders a checkbox and reads as 0.0 or 1.0. Here settings.glow switches the bar layer between additive glow brightness and a flatter look via an if().",
+    "author": "ViewMusic authoring manual"
+  },
+  "settings": {
+    "glow": {
+      "type": "toggle",
+      "label": "Glow",
+      "default": true
+    }
+  },
+  "scene": [
+    {
+      "type": "instanced",
+      "shape": "rect",
+      "blend": "add",
+      "count": 24,
+      "element": {
+        "x": "-1 + (2 * i + 1) / n",
+        "y": "-1 + band(u)",
+        "w": "1.6 / n",
+        "h": "2 * band(u)",
+        "rot": "0",
+        "color": {
+          "model": "hsva",
+          "h": "u * 280",
+          "s": "0.9",
+          "v": "if(settings.glow, 0.35 + 0.65 * band(u), 0.2 + 0.5 * band(u))",
+          "a": "0.9"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "bad-color-hex", "name": "Bad Color Hex" },
+  "settings": {
+    "tint": { "type": "color", "label": "Tint", "default": "#zzz" }
+  },
+  "scene": [
+    { "type": "field", "resolution": 4,
+      "cell": { "color": { "model": "rgba", "r": 1, "g": 0, "b": 0 } } }
+  ]
+}

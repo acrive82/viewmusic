@@ -1,0 +1,9 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "log-negative", "name": "Log Of Negative" },
+  "scene": [
+    { "type": "field", "resolution": 4,
+      "cell": { "color": { "model": "rgba",
+        "r": "log(-1)", "g": "log(0)", "b": "log2(-energy - 1)" } } }
+  ]
+}

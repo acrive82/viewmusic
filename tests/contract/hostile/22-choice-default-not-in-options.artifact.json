@@ -1,0 +1,11 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "bad-choice-default", "name": "Choice Default Not In Options" },
+  "settings": {
+    "mode": { "type": "choice", "label": "Mode", "options": ["a", "b"], "default": "c" }
+  },
+  "scene": [
+    { "type": "field", "resolution": 4,
+      "cell": { "color": { "model": "rgba", "r": 1, "g": 0, "b": 0 } } }
+  ]
+}

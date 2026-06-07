@@ -1,0 +1,8 @@
+{
+  "contract": "1.0",
+  "meta": { "id": "unknown-nested", "name": "Unknown Nested Key" },
+  "scene": [
+    { "type": "field", "resolution": 4, "bogus": 1,
+      "cell": { "color": { "model": "rgba", "r": 1, "g": 0, "b": 0 } } }
+  ]
+}
