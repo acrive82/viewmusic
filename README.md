@@ -135,11 +135,15 @@ cargo test --workspace      # DSP synthetic-signal tests, formula VM property te
 cargo clippy --workspace --all-targets
 ```
 
-The test suite is hardware-free and runs identically on both platforms. CI
-([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds and tests on macOS (Apple
-Silicon) and Windows x64 on every push and pull request; the Windows job runs the GPU smoke
-test against the WARP software adapter and uploads the portable zip. The Windows backend can
-be cross-checked from any host with `cargo check --target x86_64-pc-windows-msvc --workspace`.
+The test suite is hardware-free and runs identically on both platforms — clone, then
+`cargo test --workspace` on macOS or Windows. The Windows backend can also be cross-checked
+from any host (including macOS) without a Windows machine:
+
+```bash
+rustup target add x86_64-pc-windows-msvc
+cargo check  --target x86_64-pc-windows-msvc --workspace
+cargo clippy --target x86_64-pc-windows-msvc --workspace --all-targets
+```
 
 Workspace layout: `viz-core` (shared types) · `viz-expr` (formula bytecode VM) ·
 `viz-contract` (JSON contract, loader, artifact library) · `viz-audio` (system-audio capture
