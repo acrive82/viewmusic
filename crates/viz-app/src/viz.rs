@@ -749,11 +749,9 @@ impl VizApp {
 
     /// Polls audio + clock and returns `(feature, dt, capture_failure, permission)`.
     ///
-    /// `capture_failure` is computed by [`non_permission_capture_failure`] — see its
-    /// docs and the pinning test `running_failed_capture_is_not_a_render_state`
-    /// (MINOR-3): a *running* handle reporting [`viz_audio::CaptureState::Failed`] maps
-    /// to `capture_failure = None` (it is a permission-machine input, fed inside the
-    /// watchdog, not a UI state), which is what fixes the root-cause R1.2 flicker.
+    /// On macOS, running faults feed the permission machine to avoid guidance
+    /// flicker during tap rebuilds. On permission-free platforms, genuine backend
+    /// failures surface directly until the capture worker reconnects.
     fn poll_audio(&mut self) -> (FeatureFrame, f64, Option<String>, PermissionState) {
         let now = Instant::now();
         let (feature, capture_failure, permission) = match self.audio.as_mut() {
@@ -763,11 +761,14 @@ impl VizApp {
                 let _ = handle.drain_beats_into(&mut self.beat_scratch);
                 let frame = handle.latest_frame();
                 let permission = handle.permission_state();
-                // A running handle is never a *non-permission* failure here; the
-                // permission machine owns the silence/revocation verdict (the
-                // watchdog feeds `CaptureState::Failed` into it as an observation).
-                let capture_failure =
-                    non_permission_capture_failure(true, handle.capture_state(), self.start_failed);
+                // macOS routes running faults through its permission tracker;
+                // permission-free backends expose their real device/server errors.
+                let capture_failure = non_permission_capture_failure(
+                    true,
+                    handle.capture_state(),
+                    self.start_failed,
+                    AUDIO_PERMISSION_APPLIES,
+                );
                 (frame, capture_failure, permission)
             }
             // Capture never started: a silent default frame plus (per the helper)
@@ -775,8 +776,12 @@ impl VizApp {
             // frame). With no handle, the permission state is irrelevant
             // (CaptureFailed outranks it in `select_view`).
             None => {
-                let capture_failure =
-                    non_permission_capture_failure(false, CaptureState::Active, self.start_failed);
+                let capture_failure = non_permission_capture_failure(
+                    false,
+                    CaptureState::Active,
+                    self.start_failed,
+                    AUDIO_PERMISSION_APPLIES,
+                );
                 (
                     FeatureFrame::default(),
                     capture_failure,
@@ -808,26 +813,22 @@ impl VizApp {
 /// Decides the *non-permission* `capture_failure` message for [`select_view`] from
 /// the live audio state (pure, so it can be unit-tested in isolation).
 ///
-/// The only non-permission failure surfaced as a render state today is the pipeline
-/// failing to **start** at all (no handle + `start_failed`) — the generic
-/// capture-health guidance, re-evaluated every frame.
-///
-/// Crucially, a **running** handle's [`CaptureState::Failed`] (the sustained-zero
-/// fault the watchdog raises while it rebuilds the tap) is *not* a render state: it
-/// is an input to the permission machine (the watchdog feeds it into the
-/// silence-vs-revocation verdict), so it must map to `None` here and surface only as
-/// the live [`PermissionState`]. Routing it to `CaptureFailed` instead would make the
-/// window flicker between the active scene and the failure message every time the
-/// watchdog rebuilds the tap — this function pins it shut: while a handle is present,
-/// `CaptureState` is ignored entirely.
+/// Failed startup always surfaces guidance. With a running handle, macOS tap
+/// rebuild faults stay in the permission machine to prevent flicker. Platforms
+/// without capture permissions surface actual backend errors directly.
 fn non_permission_capture_failure(
     handle_present: bool,
-    _running_capture_state: CaptureState,
+    running_capture_state: CaptureState,
     start_failed: bool,
+    audio_permission_applies: bool,
 ) -> Option<String> {
     if handle_present {
-        // A live handle is never a non-permission failure, whatever its
-        // CaptureState (the permission machine owns the verdict).
+        if !audio_permission_applies {
+            if let CaptureState::Failed { message } = running_capture_state {
+                return Some(message);
+            }
+        }
+        // On macOS the permission machine owns the live failure verdict.
         None
     } else if start_failed {
         Some(CAPTURE_START_FAILED_MESSAGE.to_owned())
@@ -1245,6 +1246,39 @@ mod tests {
     use super::*;
     use crate::app_state::{select_view, AppView};
 
+    #[test]
+    fn permission_free_runtime_failure_is_visible_until_recovery() {
+        let message = "PulseAudio server disconnected";
+        let failure = non_permission_capture_failure(
+            true,
+            CaptureState::Failed {
+                message: message.into(),
+            },
+            false,
+            false,
+        );
+        assert_eq!(
+            select_view(true, failure.as_deref(), PermissionState::Granted, false),
+            AppView::CaptureFailed {
+                message: message.into()
+            }
+        );
+        let recovered = non_permission_capture_failure(true, CaptureState::Active, false, false);
+        assert_eq!(
+            select_view(true, recovered.as_deref(), PermissionState::Granted, false),
+            AppView::Active
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_start_failure_explains_the_audio_server() {
+        let message =
+            non_permission_capture_failure(false, CaptureState::Active, true, false).unwrap();
+        assert!(message.contains("PipeWire"), "{message}");
+        assert!(!message.contains("System Settings"), "{message}");
+    }
+
     /// MINOR-3 (pins root cause R1.2). A *running* audio handle reporting
     /// [`CaptureState::Failed`] (the sustained-zero fault the watchdog raises while
     /// it rebuilds the tap) must NOT become a `capture_failure` render input — it is
@@ -1258,26 +1292,26 @@ mod tests {
             message: "System-audio capture stalled (silent buffers).".to_owned(),
         };
         assert_eq!(
-            non_permission_capture_failure(true, failed.clone(), false),
+            non_permission_capture_failure(true, failed.clone(), false, true),
             None,
             "a running handle's CaptureState::Failed must map to capture_failure=None"
         );
         // And it is ignored even if start_failed somehow reads true.
         assert_eq!(
-            non_permission_capture_failure(true, failed.clone(), true),
+            non_permission_capture_failure(true, failed.clone(), true, true),
             None,
             "with a live handle present, CaptureState is ignored entirely"
         );
         // Active is likewise None (sanity).
         assert_eq!(
-            non_permission_capture_failure(true, CaptureState::Active, false),
+            non_permission_capture_failure(true, CaptureState::Active, false, true),
             None
         );
 
         // Fed through select_view with a Granted permission (the steady state during
         // a rebuild while music was playing): the view stays Active — no guidance
         // flash. This is the end-to-end shape of the R1.2 fix.
-        let capture_failure = non_permission_capture_failure(true, failed, false);
+        let capture_failure = non_permission_capture_failure(true, failed, false, true);
         assert_eq!(
             select_view(
                 true,
@@ -1296,12 +1330,12 @@ mod tests {
     #[test]
     fn never_started_pipeline_surfaces_generic_failure() {
         assert_eq!(
-            non_permission_capture_failure(false, CaptureState::Active, true),
+            non_permission_capture_failure(false, CaptureState::Active, true, true),
             Some(CAPTURE_START_FAILED_MESSAGE.to_owned())
         );
         // No handle and not start_failed (shouldn't happen, but pin it): None.
         assert_eq!(
-            non_permission_capture_failure(false, CaptureState::Active, false),
+            non_permission_capture_failure(false, CaptureState::Active, false, true),
             None
         );
     }

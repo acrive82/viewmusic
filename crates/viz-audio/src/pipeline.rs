@@ -210,9 +210,8 @@ pub struct AudioPipeline;
 impl AudioPipeline {
     /// Starts capture and returns the render-thread [`AudioHandle`].
     ///
-    /// On macOS this builds the cidre process-tap capture; on other platforms it
-    /// returns the unsupported [`CaptureError`]. The DSP and handoff are platform
-    /// independent.
+    /// Uses Core Audio taps on macOS, WASAPI loopback on Windows, and PulseAudio
+    /// output monitors on Linux. The DSP and handoff are platform independent.
     pub fn start() -> Result<AudioHandle, CaptureError> {
         // Handoff primitives.
         let (frame_in, frame_out) = triple_buffer::triple_buffer(&FeatureFrame::default());
@@ -228,8 +227,7 @@ impl AudioPipeline {
             dropped_beats: dropped_beats.clone(),
         });
 
-        // Start the capture backend (macOS: cidre tap; Windows: WASAPI loopback;
-        // else: error). The sink is shared so the watchdog can rebuild the tap
+        // Start the capture backend (Core Audio, WASAPI or PulseAudio). The sink is shared so the watchdog can rebuild the tap
         // against the same channels.
         //
         // On Windows the WASAPI backend wires its device-change notification client
@@ -365,6 +363,9 @@ fn spawn_watchdog(
                 }
 
                 // Recover the published CaptureState as soon as fresh audio returns.
+                // Linux owns reconnection and recovery on its capture worker;
+                // historical nonzero hops must not hide a current server failure.
+                #[cfg(not(target_os = "linux"))]
                 if verdict == WatchdogVerdict::Healthy
                     && nonzero > 0
                     && matches!(health.state(), CaptureState::Failed { .. })
@@ -480,9 +481,14 @@ fn wire_device_change_health(health: &CaptureHealth) {
     crate::tap_windows::set_pending_health(health.clone());
 }
 
-/// No-op on platforms whose backend has no device-change notification client
-/// (macOS and the unsupported fallback).
-#[cfg(not(target_os = "windows"))]
+/// Linux reconnects on its own worker and publishes runtime errors through health.
+#[cfg(target_os = "linux")]
+fn wire_device_change_health(health: &CaptureHealth) {
+    crate::tap_linux::set_pending_health(health.clone());
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+/// No-op on macOS and the unsupported fallback.
 fn wire_device_change_health(_health: &CaptureHealth) {}
 
 /// A no-op [`CaptureSource`] placeholder held by the watchdog only in the window
@@ -499,6 +505,51 @@ impl CaptureSource for DeadCapture {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_watchdog_preserves_backend_failure_after_prior_audio() {
+        use std::sync::atomic::AtomicBool;
+        use std::time::{Duration, Instant};
+
+        let (frames, _) = triple_buffer::triple_buffer(&FeatureFrame::default());
+        let (beats, _) = RingBuffer::<BeatEvent>::new(BEAT_QUEUE_CAP);
+        let health = CaptureHealth::new();
+        health.note_activity(true);
+        let failure = CaptureState::Failed {
+            message: "audio server disconnected".into(),
+        };
+        health.set_state(failure.clone());
+        let sink = SharedSink::new(AudioSink {
+            analyzer: Analyzer::new(),
+            frames,
+            beats,
+            health: health.clone(),
+            dropped_beats: Arc::new(AtomicU64::new(0)),
+        });
+        let permission = PermissionCell::new();
+        let stop = Arc::new(AtomicBool::new(false));
+        let worker = spawn_watchdog(
+            Box::new(DeadCapture),
+            sink,
+            health.clone(),
+            permission.clone(),
+            stop.clone(),
+        );
+        let deadline = Instant::now() + Duration::from_secs(2);
+        // A permission transition proves the watchdog has actually polled.
+        while permission.get() == PermissionState::Unknown && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let state = health.state();
+        stop.store(true, Ordering::Relaxed);
+        worker.join().unwrap();
+        assert_eq!(permission.get(), PermissionState::Granted);
+        assert_eq!(
+            state, failure,
+            "old audio must not clear a current Linux server failure"
+        );
+    }
 
     #[test]
     fn audio_handle_defaults_before_first_frame() {

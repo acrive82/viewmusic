@@ -10,6 +10,8 @@
 //! * **Windows** — `%LOCALAPPDATA%\acrive82\viewmusic\data\logs\viewmusic.log`,
 //!   resolved via `directories::ProjectDirs::data_local_dir()` (the platform's
 //!   per-user, non-roaming application data location).
+//! * **Linux** — `$XDG_DATA_HOME/viewmusic/logs/viewmusic.log`, falling back to
+//!   `~/.local/share/viewmusic/logs/viewmusic.log`.
 //!
 //! The file uses `Rotation::NEVER` (one stable filename for the documented
 //! troubleshooting path). To stop unbounded growth, [`init`] checks the file size
@@ -26,16 +28,16 @@ pub const BUNDLE_ID: &str = "io.github.acrive82.viewmusic";
 /// Qualifier/organization/application that resolve the Windows data-local dir via
 /// `directories::ProjectDirs`. On Windows the qualifier is dropped and the path is
 /// `%LOCALAPPDATA%\acrive82\viewmusic\data` (logs live in its `logs` subdir).
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 pub const QUALIFIER: &str = "io.github";
 /// See [`QUALIFIER`].
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 pub const ORGANIZATION: &str = "acrive82";
 /// See [`QUALIFIER`].
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 pub const APPLICATION: &str = "viewmusic";
 /// Windows log subdirectory under the per-user data-local application directory.
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 pub const LOG_SUBDIR: &str = "logs";
 /// Stable log file name (the documented troubleshooting path).
 pub const LOG_FILE_NAME: &str = "viewmusic.log";
@@ -70,16 +72,15 @@ pub fn log_dir() -> Option<PathBuf> {
     Some(log_dir_from_home(base.home_dir()))
 }
 
-/// See the macOS variant; on Windows the path is the per-user data-local
-/// application directory's `logs` subdirectory.
-#[cfg(target_os = "windows")]
+/// On Windows and Linux, logs live under the per-user data directory.
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 pub fn log_dir() -> Option<PathBuf> {
     let dirs = directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)?;
     Some(dirs.data_local_dir().join(LOG_SUBDIR))
 }
 
 /// Fallback for any other platform: no known per-OS log location.
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 pub fn log_dir() -> Option<PathBuf> {
     None
 }
@@ -160,6 +161,14 @@ pub fn init() -> WorkerGuard {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_logs_have_a_persistent_user_data_directory() {
+        let dir = log_dir().expect("Linux logs must not fall back to a temporary directory");
+        assert!(dir.is_absolute());
+        assert!(dir.ends_with("viewmusic/logs"));
+    }
 
     #[cfg(target_os = "macos")]
     #[test]

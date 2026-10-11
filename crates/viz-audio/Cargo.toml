@@ -22,5 +22,9 @@ cidre = { workspace = true }
 windows = { workspace = true }
 windows-core = { workspace = true }
 
+# PulseAudio client API, also provided by PipeWire-Pulse.
+[target.'cfg(target_os = "linux")'.dependencies]
+libpulse-binding = "2.30"
+
 [lints]
 workspace = true

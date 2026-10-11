@@ -68,10 +68,17 @@ pub const SETTINGS_URL: &str =
 /// The live message shown when the capture pipeline failed to *start* at all
 /// (non-permission: e.g. unsupported platform or a device/OSStatus error). Routed
 /// through the generic capture-health guidance branch and evaluated every frame.
-pub const CAPTURE_START_FAILED_MESSAGE: &str =
+pub const CAPTURE_START_FAILED_MESSAGE: &str = if cfg!(target_os = "linux") {
+    "System-audio capture could not be started. Check that PipeWire-Pulse or PulseAudio \
+     is running and an audio output is available, then restart ViewMusic."
+} else if cfg!(target_os = "windows") {
+    "System-audio capture could not be started. Check that an audio output device is \
+     connected and selected in Windows Sound settings, then restart ViewMusic."
+} else {
     "System-audio capture could not be started. Enable system-audio capture in \
      System Settings > Privacy & Security > Screen & System Audio Recording, then \
-     restart ViewMusic.";
+     restart ViewMusic."
+};
 
 /// The message shown when no artifacts loaded successfully (empty library).
 pub const NO_ARTIFACTS_MESSAGE: &str = "No artifacts available";

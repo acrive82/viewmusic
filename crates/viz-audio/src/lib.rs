@@ -1,6 +1,6 @@
 //! viz-audio — the system-audio capture and DSP side of ViewMusic.
 //!
-//! This crate turns the live macOS system audio mix into [`viz_core::FeatureFrame`]s
+//! This crate turns the live system audio mix into [`viz_core::FeatureFrame`]s
 //! and [`viz_core::BeatEvent`]s for the render thread. It is built in strict
 //! layers so the DSP is fully testable without hardware (the analyzer is
 //! deterministic; see `tests/synthetic.rs`):
@@ -9,8 +9,8 @@
 //!   dependency: a 48 kHz, N=1024/hop=512, Hann-windowed `realfft` pipeline →
 //!   48 log-spaced AGC bands, low/mid/high aggregates, EWMA energy, raw waveform,
 //!   and SuperFlux onset detection. Allocation-free per hop.
-//! * [`CaptureSource`] ([`tap`]) — the capture abstraction and its cidre
-//!   process-tap implementation (macOS). All Core Audio code is isolated here.
+//! * [`CaptureSource`] ([`tap`]) — the capture abstraction for Core Audio taps
+//!   (macOS), WASAPI loopback (Windows), and PulseAudio output monitors (Linux).
 //! * [`CaptureHealth`] / [`CaptureState`] ([`watchdog`]) — the capture-health
 //!   state machine that distinguishes genuine silence from capture failure and
 //!   drives tap rebuilds with backoff.
@@ -30,6 +30,8 @@ pub mod permission;
 pub mod pipeline;
 pub mod resample;
 pub mod tap;
+#[cfg(target_os = "linux")]
+pub mod tap_linux;
 #[cfg(target_os = "windows")]
 pub mod tap_windows;
 pub mod watchdog;

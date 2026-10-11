@@ -1,6 +1,6 @@
 # ViewMusic
 
-A Winamp-style real-time music visualizer for macOS and Windows. It listens to whatever is
+A Winamp-style real-time music visualizer for macOS, Windows and Linux. It listens to whatever is
 playing on your machine — any app, no loopback drivers, no audio routing — and renders
 colorful, beat-reactive visuals at a hard 60 fps with low audio-to-photon latency.
 
@@ -26,7 +26,9 @@ but a text editor — the app picks them up from a folder and reloads on demand.
 - **macOS** 14.4 or newer (the floor for the public system-audio capture permission flow),
   Apple Silicon, or
 - **Windows** 10 version 1803 or newer, 64-bit (audio capture uses WASAPI loopback — no
-  permission prompt, no driver)
+  permission prompt, no driver), or
+- **Linux** with PipeWire-Pulse or PulseAudio, and a Vulkan-capable GPU/driver.
+  Wayland and X11 are supported by the windowing library.
 - Rust 1.87 or newer, to build from source
 
 ## Build from source (macOS)
@@ -84,6 +86,35 @@ Redistributable** required. Unzip it anywhere and double-click `viewmusic.exe`.
 > show an "unrecognized app" warning on first run. Click **More info → Run anyway**. The
 > warning fades as the download accrues reputation; it is not a security gate.
 
+## Build and run (Linux)
+
+Install the Rust toolchain and the PulseAudio development library. PipeWire users
+need its PulseAudio compatibility server (`pipewire-pulse`), normally already
+running on desktop distributions.
+
+```bash
+# Arch / Omarchy (runtime graphics drivers must also be installed)
+sudo pacman -S --needed base-devel pkgconf libpulse
+
+# Debian / Ubuntu equivalent
+# sudo apt install build-essential pkg-config libpulse-dev libxkbcommon-dev libvulkan1
+
+cargo build --release -p viz-app
+./target/release/viewmusic
+```
+
+Play music from any app. ViewMusic reads the **monitor of the default audio
+output**, including Bluetooth headphones, through the native PulseAudio client
+API. Audio is converted to mono 48 kHz by the server. It follows default-output
+changes automatically (checked once per second) and reconnects if the audio
+server or output disappears during capture. No capture permission prompt is
+needed for a normal local desktop session.
+
+If capture fails, check `pactl info` and make sure an output is available. Logs
+are at `~/.local/share/viewmusic/logs/viewmusic.log` (or under
+`$XDG_DATA_HOME/viewmusic/logs/`). The release binary links to the system's
+`libpulse`; it is not a self-contained cross-distribution package.
+
 ## Usage
 
 - **Visualizer dropdown (top-right):** pick any of the 15 built-ins or any artifact you have
@@ -107,11 +138,13 @@ Just play music from any app — the visualizer reacts immediately.
 2. Drop a `<name>.artifact.json` file into the artifacts folder:
    - macOS: `~/Library/Application Support/io.github.acrive82.viewmusic/artifacts/`
    - Windows: `%APPDATA%\acrive82\viewmusic\config\artifacts\`
+   - Linux: `~/.config/viewmusic/artifacts/` (or `$XDG_CONFIG_HOME/viewmusic/artifacts/`)
 3. Click **Reload artifacts** in the overlay, then pick your artifact from the dropdown.
 4. If it does not appear, the log explains why — naming the file, the JSON path, and the
    offending token:
    - macOS: `~/Library/Logs/io.github.acrive82.viewmusic/viewmusic.log`
    - Windows: `%LOCALAPPDATA%\acrive82\viewmusic\data\logs\viewmusic.log`
+   - Linux: `~/.local/share/viewmusic/logs/viewmusic.log` (or `$XDG_DATA_HOME/viewmusic/logs/viewmusic.log`)
 
 The machine-readable JSON Schema lives at
 [`docs/reference/artifact.schema.json`](docs/reference/artifact.schema.json) (regenerate it
@@ -119,10 +152,11 @@ with `cargo run -p viz-contract --bin export-schema`).
 
 ## Platform support
 
-ViewMusic runs on **macOS and Windows.** Audio capture is the only platform-specific layer,
-isolated behind a single capture seam: macOS uses the Core Audio process-tap API, and Windows
-10 1803+ (x64) uses WASAPI loopback. Everything downstream — the DSP, beat detection,
-renderer (wgpu: Metal on macOS, DX12 on Windows), windowing, UI, and the artifact engine — is
+ViewMusic runs on **macOS, Windows and Linux.** Audio capture is the main platform-specific
+layer, isolated behind a single capture seam: macOS uses the Core Audio process-tap API,
+Windows 10 1803+ (x64) uses WASAPI loopback, and Linux uses PulseAudio output-monitor capture
+(also supported by PipeWire-Pulse). Everything downstream — the DSP, beat detection,
+renderer (wgpu: Metal on macOS, DX12 on Windows, Vulkan on Linux), windowing, UI, and the artifact engine — is
 shared, portable Rust. The component-by-component design record for the Windows port is in
 [`docs/windows-port-analysis.md`](docs/windows-port-analysis.md).
 
@@ -135,8 +169,22 @@ cargo test --workspace      # DSP synthetic-signal tests, formula VM property te
 cargo clippy --workspace --all-targets
 ```
 
-The test suite is hardware-free and runs identically on both platforms — clone, then
-`cargo test --workspace` on macOS or Windows. The Windows backend can also be cross-checked
+The default test suite needs no audio hardware (the GPU smoke tests need a GPU or
+software adapter). Run `cargo test --workspace` on macOS, Windows or Linux.
+The optional Linux live-capture check needs a running local audio server:
+
+```bash
+cargo test -p viz-audio --test linux_capture live_capture -- --ignored
+```
+
+The ignored `isolated_server_follows_outputs_and_recovers_after_restart` test
+additionally checks played audio, output switching, server restart, and output
+removal using a private PulseAudio daemon and virtual sinks. It needs the
+`pulseaudio` executable plus `pactl`/`paplay`; set `VIEWMUSIC_TEST_PULSEAUDIO`
+and `VIEWMUSIC_TEST_PULSE_MODULES` to use a daemon extracted separately from the
+system installation. It does not change the desktop's server or play physical audio.
+
+The Windows backend can also be cross-checked
 from any host (including macOS) without a Windows machine:
 
 ```bash
@@ -147,7 +195,7 @@ cargo clippy --target x86_64-pc-windows-msvc --workspace --all-targets
 
 Workspace layout: `viz-core` (shared types) · `viz-expr` (formula bytecode VM) ·
 `viz-contract` (JSON contract, loader, artifact library) · `viz-audio` (system-audio capture
-— Core Audio tap on macOS, WASAPI loopback on Windows — + DSP) · `viz-render` (wgpu render
+— Core Audio tap on macOS, WASAPI loopback on Windows, PulseAudio on Linux — + DSP) · `viz-render` (wgpu render
 pipelines) · `viz-app` (winit/egui shell).
 
 ## License

@@ -135,8 +135,14 @@ impl CaptureError {
 
     /// The user-facing guidance string for a denied/failed capture.
     pub fn guidance() -> &'static str {
-        "Enable system-audio capture in System Settings > Privacy & Security > \
+        if cfg!(target_os = "linux") {
+            "Check that PipeWire-Pulse or PulseAudio is running and an audio output is available."
+        } else if cfg!(target_os = "windows") {
+            "Check that an audio output device is connected and selected in Windows Sound settings."
+        } else {
+            "Enable system-audio capture in System Settings > Privacy & Security > \
          Screen & System Audio Recording, then restart ViewMusic."
+        }
     }
 }
 
@@ -402,12 +408,15 @@ mod macos {
 #[cfg(target_os = "windows")]
 pub use crate::tap_windows::{start, WasapiCapture};
 
+#[cfg(target_os = "linux")]
+pub use crate::tap_linux::{start, PulseCapture};
+
 // ---------------------------------------------------------------------------
 // Unsupported-OS placeholder: keeps the crate buildable for tooling elsewhere.
-// macOS and Windows have real backends above; any other target errors clearly.
+// macOS, Windows and Linux have real backends; other targets error clearly.
 // ---------------------------------------------------------------------------
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 mod fallback {
     use super::*;
 
@@ -415,7 +424,7 @@ mod fallback {
     pub fn start(_sink: Box<dyn SampleSink>) -> Result<NoTap, CaptureError> {
         Err(CaptureError::msg(
             CaptureStage::Unsupported,
-            "system-audio capture is only implemented on macOS and Windows",
+            "system-audio capture is only implemented on macOS, Windows and Linux",
         ))
     }
 
@@ -429,7 +438,7 @@ mod fallback {
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 pub use fallback::{start, NoTap};
 
 #[cfg(target_os = "macos")]
